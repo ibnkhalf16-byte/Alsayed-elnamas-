@@ -45,11 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedIcon: Icon(Icons.dashboard),
               label: 'الرئيسية',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.local_shipping_outlined),
-              selectedIcon: Icon(Icons.local_shipping),
-              label: 'النقلات',
-            ),
+            
             NavigationDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
