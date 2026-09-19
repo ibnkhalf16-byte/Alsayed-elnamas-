@@ -1,3 +1,4 @@
+import 'dart:ui' as dart_ui;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
@@ -77,7 +78,7 @@ class _TripsScreenState extends State<TripsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: TextDirection.rtl,
+          textDirection: dart_ui.TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(
@@ -283,7 +284,7 @@ class _TripsScreenState extends State<TripsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: TextDirection.rtl,
+          textDirection: dart_ui.TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('بيع ونقل من النقلة المشتراة'),
@@ -423,7 +424,7 @@ class _TripsScreenState extends State<TripsScreen> {
     }).toList();
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: dart_ui.TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('سجل النقلات والوزنات'),
