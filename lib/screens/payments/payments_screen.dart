@@ -1,3 +1,4 @@
+import 'dart:ui' as dart_ui;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
@@ -65,7 +66,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: TextDirection.rtl,
+          textDirection: dart_ui.TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(isEdit ? 'تعديل سند سداد' : 'تسجيل سند سداد'),
@@ -189,7 +190,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: dart_ui.TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(title: const Text('سندات السداد والتحصيل')),
         floatingActionButton: FloatingActionButton(
