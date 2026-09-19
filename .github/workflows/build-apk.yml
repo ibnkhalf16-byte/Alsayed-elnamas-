@@ -30,7 +30,7 @@ jobs:
         run: |
           flutter config --no-analytics
           rm -rf android/
-          flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
+          flutter create . --project-name elsayed_accounts --platforms=android --org com.elsayed.accounts
 
       - name: Force Android compileSdk 34
         run: |
