@@ -1,7 +1,7 @@
 // FILE: lib/screens/trips/trips_screen.dart
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/database/database_helper.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
