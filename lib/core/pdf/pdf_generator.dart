@@ -17,11 +17,11 @@ class PdfGenerator {
     // ============================================================
 
     final regularFontData = await rootBundle.load(
-      'assets/fonts/NotoNaskhArabic-Regular.ttf',
+      'assets/fonts/NotoSansArabic-Regular.ttf',
     );
 
     final boldFontData = await rootBundle.load(
-      'assets/fonts/NotoNaskhArabic-Bold.ttf',
+      'assets/fonts/NotoSansArabic-Bold.ttf',
     );
 
     final fontRegular = pw.Font.ttf(
@@ -187,12 +187,6 @@ class PdfGenerator {
             ),
 
             // ----------------------------------------------------
-            // اتجاه النص
-            // ----------------------------------------------------
-
-         
-
-            // ----------------------------------------------------
             // الهيدر
             // ----------------------------------------------------
 
@@ -224,47 +218,17 @@ class PdfGenerator {
 
             cellAlignment: pw.Alignment.center,
 
-            // ====================================================
-            // مهم جداً:
-            //
-            // ترتيب الأعمدة هنا هو الترتيب المرئي من اليمين
-            // إلى اليسار.
-            //
-            // التاريخ سيكون أقصى اليمين.
-            // الرصيد سيكون أقصى اليسار.
-            // ====================================================
-
             columnWidths: const {
-
-              // التاريخ - أقصى اليمين
-              0: pw.FlexColumnWidth(2.1),
-
-              // الحركة
-              1: pw.FlexColumnWidth(1.4),
-
-              // البيان
-              2: pw.FlexColumnWidth(2.6),
-
-              // التحميل
-              3: pw.FlexColumnWidth(1.8),
-
-              // السائق
-              4: pw.FlexColumnWidth(2.1),
-
-              // طن
-              5: pw.FlexColumnWidth(1.2),
-
-              // سعر الطن
-              6: pw.FlexColumnWidth(1.7),
-
-              // مدين
-              7: pw.FlexColumnWidth(2.0),
-
-              // دائن
-              8: pw.FlexColumnWidth(2.0),
-
-              // الرصيد - أقصى اليسار
-              9: pw.FlexColumnWidth(2.3),
+              0: pw.FlexColumnWidth(2.1), // التاريخ
+              1: pw.FlexColumnWidth(1.4), // الحركة
+              2: pw.FlexColumnWidth(2.6), // البيان
+              3: pw.FlexColumnWidth(1.8), // التحميل
+              4: pw.FlexColumnWidth(2.1), // السائق
+              5: pw.FlexColumnWidth(1.2), // طن
+              6: pw.FlexColumnWidth(1.7), // سعر الطن
+              7: pw.FlexColumnWidth(2.0), // مدين
+              8: pw.FlexColumnWidth(2.0), // دائن
+              9: pw.FlexColumnWidth(2.3), // الرصيد
             },
 
             // ====================================================
@@ -320,65 +284,16 @@ class PdfGenerator {
               final String date =
                   ev['date']?.toString() ?? '';
 
-              // ==================================================
-              // مهم:
-              //
-              // لا نعكس البيانات هنا.
-              //
-              // نفس ترتيب headers:
-              //
-              // التاريخ
-              // الحركة
-              // البيان
-              // التحميل
-              // السائق
-              // طن
-              // سعر الطن
-              // مدين
-              // دائن
-              // الرصيد
-              //
-              // وبسبب RTL سيكون التاريخ يميناً.
-              // ==================================================
-
               return [
-
-                // 1 - التاريخ
                 date,
-
-                // 2 - الحركة
                 actionType,
-
-                // 3 - البيان
                 itemOrDesc,
-
-                // 4 - التحميل
                 vehicle,
-
-                // 5 - السائق
                 driver,
-
-                // 6 - طن
-                weight > 0
-                    ? weight.toStringAsFixed(2)
-                    : '',
-
-                // 7 - سعر الطن
-                price > 0
-                    ? price.toStringAsFixed(2)
-                    : '',
-
-                // 8 - مدين
-                debit > 0
-                    ? debit.toStringAsFixed(2)
-                    : '0.00',
-
-                // 9 - دائن
-                credit > 0
-                    ? credit.toStringAsFixed(2)
-                    : '0.00',
-
-                // 10 - الرصيد
+                weight > 0 ? weight.toStringAsFixed(2) : '',
+                price > 0 ? price.toStringAsFixed(2) : '',
+                debit > 0 ? debit.toStringAsFixed(2) : '0.00',
+                credit > 0 ? credit.toStringAsFixed(2) : '0.00',
                 balance.toStringAsFixed(2),
               ];
             }).toList(),
