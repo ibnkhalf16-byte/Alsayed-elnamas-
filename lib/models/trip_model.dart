@@ -1,14 +1,16 @@
+// FILE: lib/models/trip_model.dart
 class TripModel {
   final String id;
   final String personId;
   final String personName;
-  final String operation; // 'purchase' or 'sale'
+  final String operation;
   final String date;
   final String vehicle;
   final String driver;
   final String item;
   final double weight;
   final double price;
+  final double nolon; // الحقل الجديد للنولون
   final double total;
   final String notes;
   final String? sourceTripId;
@@ -24,6 +26,7 @@ class TripModel {
     required this.item,
     required this.weight,
     required this.price,
+    this.nolon = 0.0, // قيمة افتراضية
     required this.total,
     this.notes = '',
     this.sourceTripId,
@@ -39,6 +42,7 @@ class TripModel {
     'item': item,
     'weight': weight,
     'price': price,
+    'nolon': nolon, // إضافته لقاعدة البيانات
     'total': total,
     'notes': notes,
     'source_trip_id': sourceTripId,
@@ -55,6 +59,7 @@ class TripModel {
     item: map['item'],
     weight: (map['weight'] as num).toDouble(),
     price: (map['price'] as num).toDouble(),
+    nolon: (map['nolon'] as num?)?.toDouble() ?? 0.0, // قراءته من قاعدة البيانات
     total: (map['total'] as num).toDouble(),
     notes: map['notes'] ?? '',
     sourceTripId: map['source_trip_id'],
