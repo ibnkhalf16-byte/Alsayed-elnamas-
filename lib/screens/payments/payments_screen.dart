@@ -65,8 +65,9 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Directionality(
-          
+          builder: (context, setModalState) => Directionality(
+  textDirection: TextDirection.rtl,
+
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(isEdit ? 'تعديل سند سداد' : 'تسجيل سند سداد'),
@@ -190,6 +191,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
+  textDirection: TextDirection.rtl,
+
       
       child: Scaffold(
         appBar: AppBar(title: const Text('سندات السداد والتحصيل')),
