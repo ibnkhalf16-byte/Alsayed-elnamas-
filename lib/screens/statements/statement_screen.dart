@@ -74,12 +74,12 @@ class _StatementScreenState extends State<StatementScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('كشف الحساب المالي'),
+          title: const Text('كشف حساب مفصل'),
           actions: [
             if (_selectedPerson != null && _events.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.print_outlined),
-                tooltip: 'طباعة وتصدير PDF',
+                tooltip: 'تصدير PDF',
                 onPressed: () {
                   PdfGenerator.generateAndPrintStatement(
                     person: _selectedPerson!,
@@ -92,10 +92,13 @@ class _StatementScreenState extends State<StatementScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(16.0),
               child: DropdownButtonFormField<PersonModel>(
                 value: _selectedPerson,
-                decoration: const InputDecoration(labelText: 'اختر الطرف لعرض كشف الحساب'),
+                decoration: const InputDecoration(
+                  labelText: 'اختر الطرف (العميل أو المورد)',
+                  prefixIcon: Icon(Icons.person),
+                ),
                 items: _persons
                     .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
                     .toList(),
@@ -104,40 +107,53 @@ class _StatementScreenState extends State<StatementScreen> {
                 },
               ),
             ),
-            if (_selectedPerson != null && _events.isNotEmpty)
+            if (_selectedPerson != null)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isReceivable ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
+                  gradient: LinearGradient(
+                    colors: isReceivable 
+                      ? [AppColors.receivableGreen.withOpacity(0.8), AppColors.receivableGreen]
+                      : [AppColors.payableRed.withOpacity(0.8), AppColors.payableRed],
                   ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                     BoxShadow(
+                       color: (isReceivable ? AppColors.receivableGreen : AppColors.payableRed).withOpacity(0.3),
+                       blurRadius: 8,
+                       offset: const Offset(0, 4)
+                     )
+                  ]
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'الرصيد النهائي: ${AppFormatters.formatCurrency(lastBalance.abs())}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('الرصيد النهائي الحالي:', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        Text(
+                          AppFormatters.formatCurrency(lastBalance.abs()),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.white),
+                        ),
+                      ],
                     ),
-                    Text(
-                      isReceivable ? 'مستحق (لك عنده)' : 'مطلوب (له عندك)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        isReceivable ? 'مستحق (لك عنده)' : 'مطلوب (له عندك)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -145,62 +161,87 @@ class _StatementScreenState extends State<StatementScreen> {
                       ? const Center(
                           child: Text(
                             'لا توجد حركات مسجلة لهذا الحساب',
-                            style: TextStyle(color: AppColors.textSecondary),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           itemCount: _events.length,
                           itemBuilder: (ctx, i) {
                             final ev = _events[i];
                             final debit = (ev['debit'] as num).toDouble();
                             final credit = (ev['credit'] as num).toDouble();
                             final balance = (ev['balance'] as num).toDouble();
+                            final isOpening = ev['type'] == 'رصيد افتتاح';
 
                             return Card(
+                              elevation: 1,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              color: isOpening ? AppColors.primary.withOpacity(0.05) : Colors.white,
                               child: Padding(
-                                padding: const EdgeInsets.all(12.0),
+                                padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          '${ev['type']} - ${ev['desc']}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              isOpening ? Icons.account_balance : (debit > 0 ? Icons.add_circle : Icons.remove_circle),
+                                              color: isOpening ? AppColors.primary : (debit > 0 ? AppColors.receivableGreen : AppColors.payableRed),
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${ev['type']}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold, 
+                                                fontSize: 15,
+                                                color: isOpening ? AppColors.primary : AppColors.textPrimary
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                         Text(
                                           ev['date'].toString(),
-                                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'البيان: ${ev['desc']}',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const Divider(height: 24),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          'مدين (+): ${AppFormatters.formatCurrency(debit)}',
-                                          style: const TextStyle(fontSize: 12, color: AppColors.receivableGreen),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('مدين (+): ${AppFormatters.formatCurrency(debit)}', style: const TextStyle(color: AppColors.receivableGreen, fontSize: 13, fontWeight: FontWeight.bold)),
+                                            Text('دائن (-): ${AppFormatters.formatCurrency(credit)}', style: const TextStyle(color: AppColors.payableRed, fontSize: 13, fontWeight: FontWeight.bold)),
+                                          ],
                                         ),
-                                        Text(
-                                          'دائن (-): ${AppFormatters.formatCurrency(credit)}',
-                                          style: const TextStyle(fontSize: 12, color: AppColors.payableRed),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.scaffoldBackground,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            'الرصيد: ${AppFormatters.formatCurrency(balance)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: AppColors.primaryDark,
+                                            ),
+                                          ),
                                         ),
                                       ],
-                                    ),
-                                    const Divider(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        'الرصيد بعد الحركة: ${AppFormatters.formatCurrency(balance)}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: AppColors.primaryDark,
-                                        ),
-                                      ),
                                     ),
                                   ],
                                 ),
