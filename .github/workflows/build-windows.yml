@@ -1,0 +1,47 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Recreate Clean Windows Platform
+        run: |
+          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
+          flutter create . --project-name alaa_accounts --platforms=windows --org com.elsayed.accounts
+
+      - name: Rename App to "حسابات السيد النماس"
+        run: |
+          (Get-Content windows\runner\main.cpp) -replace 'L"alaa_accounts"', 'L"حسابات السيد النماس"' | Set-Content windows\runner\main.cpp -Encoding UTF8
+          (Get-Content windows\runner\Runner.rc) -replace 'VALUE "FileDescription", "alaa_accounts"', 'VALUE "FileDescription", "حسابات السيد النماس"' | Set-Content windows\runner\Runner.rc -Encoding UTF8
+          (Get-Content windows\runner\Runner.rc) -replace 'VALUE "ProductName", "alaa_accounts"', 'VALUE "ProductName", "حسابات السيد النماس"' | Set-Content windows\runner\Runner.rc -Encoding UTF8
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Upload Windows Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alsayed-Elnamas-Windows-EXE
+          path: build\windows\*\runner\Release\*
