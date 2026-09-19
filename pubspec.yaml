@@ -30,6 +30,3 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/fonts/NotoNaskhArabic-Regular.ttf
-    - assets/fonts/NotoNaskhArabic-Bold.ttf
