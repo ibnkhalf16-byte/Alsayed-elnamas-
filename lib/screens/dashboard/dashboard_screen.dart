@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+٨import 'package:flutter/material.dart';
 import '../../core/database/database_helper.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
@@ -144,7 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('حسابات علاء أبو شادي', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('حسابات السيد النماس ', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
         ),
         body: _isLoading
