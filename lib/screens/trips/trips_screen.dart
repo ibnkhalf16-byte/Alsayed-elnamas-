@@ -183,24 +183,6 @@ class _TripsScreenState extends State<TripsScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // إضافة حقل النولون هنا
-                    TextFormField(
-                      controller: nolonCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'النولون للطن (اختياري)',
-                        hintText: 'قيمة النولون لكل طن',
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) {
-                        if (v != null && v.isNotEmpty) {
-                           if (double.tryParse(v) == null || double.parse(v) < 0) {
-                             return 'قيمة غير صحيحة';
-                           }
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
@@ -235,10 +217,8 @@ class _TripsScreenState extends State<TripsScreen> {
                   
                   final weight = double.parse(weightCtrl.text.trim());
                   final price = double.parse(priceCtrl.text.trim());
-                  final nolon = nolonCtrl.text.trim().isNotEmpty ? double.parse(nolonCtrl.text.trim()) : 0.0;
                   
-                  // المعادلة الجديدة: (السعر * الوزن) + (النولون * الوزن)
-                  final total = (weight * price) + (weight * nolon);
+                  final total = weight * price;
                   
                   final db = await DatabaseHelper.instance.database;
 
@@ -256,7 +236,6 @@ class _TripsScreenState extends State<TripsScreen> {
                       item: itemCtrl.text.trim(),
                       weight: weight,
                       price: price,
-                      nolon: nolon, // حفظ النولون
                       total: total,
                       notes: notesCtrl.text.trim(),
                       sourceTripId: existing.sourceTripId,
@@ -273,7 +252,6 @@ class _TripsScreenState extends State<TripsScreen> {
                       item: itemCtrl.text.trim(),
                       weight: weight,
                       price: price,
-                      nolon: nolon, // حفظ النولون
                       total: total,
                       notes: notesCtrl.text.trim(),
                     );
@@ -313,7 +291,6 @@ class _TripsScreenState extends State<TripsScreen> {
     final dateCtrl = TextEditingController(text: DateFormat('yyyy-MM-dd').format(saleDate));
     final weightCtrl = TextEditingController(text: remaining.toString());
     final priceCtrl = TextEditingController();
-    final nolonCtrl = TextEditingController(); // نولون عند البيع
 
     showDialog(
       context: context,
@@ -385,12 +362,6 @@ class _TripsScreenState extends State<TripsScreen> {
                     decoration: const InputDecoration(labelText: 'سعر بيع الطن (ج.م)'),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: nolonCtrl,
-                    decoration: const InputDecoration(labelText: 'نولون البيع للطن (اختياري)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
                 ],
               ),
             ),
@@ -400,7 +371,6 @@ class _TripsScreenState extends State<TripsScreen> {
                 onPressed: () async {
                   final w = double.tryParse(weightCtrl.text.trim()) ?? 0;
                   final p = double.tryParse(priceCtrl.text.trim()) ?? 0;
-                  final n = nolonCtrl.text.trim().isNotEmpty ? double.parse(nolonCtrl.text.trim()) : 0.0;
                   
                   if (selectedCustomer == null || w <= 0 || p <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -418,8 +388,7 @@ class _TripsScreenState extends State<TripsScreen> {
                   final isAuthorized = await SettingsScreen.verifyPassword(context);
                   if (!isAuthorized) return;
 
-                  // حساب الإجمالي مع النولون للبيع
-                  final totalSale = (w * p) + (w * n);
+                  final totalSale = w * p;
 
                   final db = await DatabaseHelper.instance.database;
                   final saleTrip = TripModel(
@@ -432,7 +401,6 @@ class _TripsScreenState extends State<TripsScreen> {
                     item: purchase.item,
                     weight: w,
                     price: p,
-                    nolon: n,
                     total: totalSale,
                     sourceTripId: purchase.id,
                   );
@@ -592,11 +560,6 @@ class _TripsScreenState extends State<TripsScreen> {
                                       color: AppColors.primaryDark,
                                     ),
                                   ),
-                                  if (t.nolon > 0)
-                                    Text(
-                                      'نولون: ${t.nolon.toStringAsFixed(2)} للطن',
-                                      style: const TextStyle(fontSize: 12, color: AppColors.warningOrange, fontWeight: FontWeight.bold),
-                                    ),
                                 ],
                               ),
                               const SizedBox(height: 4),
