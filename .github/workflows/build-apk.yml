@@ -22,28 +22,27 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Platform
+      - name: Recreate Clean Android Platform
         run: |
           flutter config --no-analytics
           rm -rf android/
           flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
 
+      - name: Rename App to "حسابات السيد النماس"
+        run: sed -i 's/android:label="alaa_accounts"/android:label="حسابات السيد النماس"/g' android/app/src/main/AndroidManifest.xml
+
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Analyze Project Code
-        run: flutter analyze
-
       - name: Build APK Release
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release
 
       - name: Upload APK Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Alsayed-Accounts-Release-APK
-          path: build/app/outputs/flutter-apk/*.apk
+          name: Alsayed-Elnamas-Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
