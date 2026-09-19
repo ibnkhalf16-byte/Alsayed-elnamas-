@@ -22,23 +22,27 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Platform
+      - name: Recreate Clean Android Platform
         run: |
           flutter config --no-analytics
-          flutter create . --platforms=android --org com.elsayed.accounts
+          rm -rf android/
+          flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons -v
+      - name: Run Dart Analyze (Check Code Errors)
+        run: flutter analyze || true
+
+      - name: Build APK Release
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Alsayed-Accounts-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
