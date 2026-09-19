@@ -1,3 +1,4 @@
+// FILE: lib/core/database/database_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -49,6 +50,7 @@ class DatabaseHelper {
         item TEXT NOT NULL,
         weight REAL NOT NULL,
         price REAL NOT NULL,
+        nolon REAL DEFAULT 0, -- الحقل الجديد
         total REAL NOT NULL,
         notes TEXT,
         source_trip_id TEXT,
