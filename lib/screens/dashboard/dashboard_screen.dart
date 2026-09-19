@@ -228,7 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.local_shipping,
                           color: AppColors.warningOrange,
                           onTap: () {
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen()));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen(initialOperation: 'purchase')));
                           },
                         ),
                         _buildActionBtn(
@@ -236,7 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.local_shipping_outlined,
                           color: AppColors.primary,
                           onTap: () {
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen()));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen(initialOperation: 'sale')));
                           },
                         ),
                         _buildActionBtn(
@@ -244,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.add_card,
                           color: AppColors.receivableGreen,
                           onTap: () {
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsScreen()));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsScreen(initialDirection: 'from_customer')));
                           },
                         ),
                         _buildActionBtn(
@@ -252,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.credit_card,
                           color: AppColors.payableRed,
                           onTap: () {
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsScreen()));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsScreen(initialDirection: 'to_supplier')));
                           },
                         ),
                         _buildActionBtn(
