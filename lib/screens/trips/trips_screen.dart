@@ -75,8 +75,6 @@ class _TripsScreenState extends State<TripsScreen> {
     final itemCtrl = TextEditingController(text: existing?.item ?? '');
     final weightCtrl = TextEditingController(text: existing != null ? existing.weight.toString() : '');
     final priceCtrl = TextEditingController(text: existing != null ? existing.price.toString() : '');
-    // حقل الإدخال الجديد للنولون
-    final nolonCtrl = TextEditingController(text: existing != null && existing.nolon > 0 ? existing.nolon.toString() : '');
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
 
     showDialog(
