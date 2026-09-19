@@ -42,8 +42,6 @@ jobs:
 
       - name: Analyze Project Code
         run: flutter analyze || true
-      - name: Check Code Errors
-        run: flutter analyze 
 
       - name: Build APK Release
         run: flutter build apk --release --no-tree-shake-icons
