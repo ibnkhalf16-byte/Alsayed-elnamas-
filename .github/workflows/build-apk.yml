@@ -22,10 +22,11 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
-      - name: Recreate Clean Android Platform
+      - name: Recreate Android Platform
         run: |
           flutter config --no-analytics
           rm -rf android/
@@ -34,8 +35,8 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Run Dart Analyze (Check Code Errors)
-        run: flutter analyze || true
+      - name: Analyze Project Code
+        run: flutter analyze
 
       - name: Build APK Release
         run: flutter build apk --release --no-tree-shake-icons
