@@ -1,6 +1,8 @@
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
 import '../../models/person_model.dart';
 
 class PdfGenerator {
@@ -10,111 +12,270 @@ class PdfGenerator {
   }) async {
     final pdf = pw.Document();
 
-    final fontRegular = await PdfGoogleFonts.amiriRegular();
-    final fontBold = await PdfGoogleFonts.amiriBold();
+    // ============================================================
+    // تحميل الخط العربي من داخل التطبيق
+    // ============================================================
+
+    final regularFontData = await rootBundle.load(
+      'assets/fonts/NotoNaskhArabic-Regular.ttf',
+    );
+
+    final boldFontData = await rootBundle.load(
+      'assets/fonts/NotoNaskhArabic-Bold.ttf',
+    );
+
+    final fontRegular = pw.Font.ttf(
+      regularFontData,
+    );
+
+    final fontBold = pw.Font.ttf(
+      boldFontData,
+    );
+
+    // ============================================================
+    // الرصيد النهائي
+    // ============================================================
 
     final lastBalance = events.isNotEmpty
         ? (events.last['balance'] as num?)?.toDouble() ?? 0.0
         : 0.0;
 
-    final currentDateStr = DateTime.now().toString().substring(0, 16);
+    // ============================================================
+    // تاريخ الطباعة
+    // ============================================================
+
+    final now = DateTime.now();
+
+    final currentDateStr =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
+
+    // ============================================================
+    // إنشاء الصفحة
+    // ============================================================
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
+
         textDirection: pw.TextDirection.rtl,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+
+        margin: const pw.EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 15,
+          bottom: 18,
+        ),
+
         theme: pw.ThemeData.withFont(
           base: fontRegular,
           bold: fontBold,
         ),
+
+        // ========================================================
+        // رأس الصفحة
+        // ========================================================
+
         header: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
+
+              // اسم البرنامج
               pw.Center(
                 child: pw.Text(
                   'حسابات السيد النماس',
                   textDirection: pw.TextDirection.rtl,
                   style: pw.TextStyle(
-                    fontSize: 22,
+                    font: fontBold,
+                    fontSize: 19,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.blueGrey900,
                   ),
                 ),
               ),
-              pw.SizedBox(height: 6),
+
+              pw.SizedBox(height: 5),
+
+              // اسم الشخص
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  'كشف حساب: ${person.name}',
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+
+              pw.SizedBox(height: 7),
+            ],
+          );
+        },
+
+        // ========================================================
+        // أسفل الصفحة
+        // ========================================================
+
+        footer: (pw.Context context) {
+          return pw.Column(
+            children: [
+
+              pw.SizedBox(height: 8),
+
+              pw.Divider(
+                color: PdfColors.grey400,
+                thickness: 0.5,
+              ),
+
+              pw.SizedBox(height: 3),
+
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.start,
+                mainAxisAlignment:
+                    pw.MainAxisAlignment.spaceBetween,
                 children: [
+
                   pw.Text(
-                    'كشف حساب: ${person.name}',
+                    'صفحة ${context.pageNumber} من ${context.pagesCount}',
                     textDirection: pw.TextDirection.rtl,
                     style: pw.TextStyle(
-                      fontSize: 13,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.black,
+                      font: fontRegular,
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+
+                  pw.Text(
+                    'تاريخ الطباعة: $currentDateStr',
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: fontRegular,
+                      fontSize: 8,
+                      color: PdfColors.grey700,
                     ),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 8),
             ],
           );
         },
-        footer: (pw.Context context) {
-          return pw.Column(
-            children: [
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    'صفحة ${context.pageNumber}',
-                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
-                  ),
-                  pw.Text(
-                    'تاريخ الطباعة: $currentDateStr',
-                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
+
+        // ========================================================
+        // محتوى التقرير
+        // ========================================================
+
         build: (pw.Context context) => [
+
+          // ======================================================
+          // الجدول
+          // ======================================================
+
           pw.TableHelper.fromTextArray(
+
             context: context,
-            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+
+            border: pw.TableBorder.all(
+              color: PdfColors.grey500,
+              width: 0.5,
+            ),
+
+            // ----------------------------------------------------
+            // اتجاه النص
+            // ----------------------------------------------------
+
+            cellDirection: pw.TextDirection.rtl,
+
+            // ----------------------------------------------------
+            // الهيدر
+            // ----------------------------------------------------
+
             headerStyle: pw.TextStyle(
-              fontSize: 10,
+              font: fontBold,
+              fontSize: 8.5,
               fontWeight: pw.FontWeight.bold,
               color: PdfColors.white,
             ),
+
             headerDecoration: const pw.BoxDecoration(
-              color: PdfColor.fromInt(0xFF1E3A8A),
+              color: PdfColor.fromInt(
+                0xFF1E3A8A,
+              ),
             ),
+
             headerHeight: 25,
+
+            // ----------------------------------------------------
+            // الخلايا
+            // ----------------------------------------------------
+
+            cellStyle: pw.TextStyle(
+              font: fontRegular,
+              fontSize: 8,
+            ),
+
             cellHeight: 22,
-            cellStyle: const pw.TextStyle(fontSize: 9),
+
             cellAlignment: pw.Alignment.center,
+
+            // ====================================================
+            // مهم جداً:
+            //
+            // ترتيب الأعمدة هنا هو الترتيب المرئي من اليمين
+            // إلى اليسار.
+            //
+            // التاريخ سيكون أقصى اليمين.
+            // الرصيد سيكون أقصى اليسار.
+            // ====================================================
+
             columnWidths: const {
-              0: pw.FlexColumnWidth(2.2), // التاريخ
-              1: pw.FlexColumnWidth(1.4), // الحركة
-              2: pw.FlexColumnWidth(2.6), // البيان
-              3: pw.FlexColumnWidth(1.8), // السيارة
-              4: pw.FlexColumnWidth(2.2), // السائق
-              5: pw.FlexColumnWidth(1.4), // طن
-              6: pw.FlexColumnWidth(1.8), // سعر الطن
-              7: pw.FlexColumnWidth(2.2), // مدين
-              8: pw.FlexColumnWidth(2.2), // دائن
-              9: pw.FlexColumnWidth(2.4), // الرصيد
+
+              // التاريخ - أقصى اليمين
+              0: pw.FlexColumnWidth(2.1),
+
+              // الحركة
+              1: pw.FlexColumnWidth(1.4),
+
+              // البيان
+              2: pw.FlexColumnWidth(2.6),
+
+              // التحميل
+              3: pw.FlexColumnWidth(1.8),
+
+              // السائق
+              4: pw.FlexColumnWidth(2.1),
+
+              // طن
+              5: pw.FlexColumnWidth(1.2),
+
+              // سعر الطن
+              6: pw.FlexColumnWidth(1.7),
+
+              // مدين
+              7: pw.FlexColumnWidth(2.0),
+
+              // دائن
+              8: pw.FlexColumnWidth(2.0),
+
+              // الرصيد - أقصى اليسار
+              9: pw.FlexColumnWidth(2.3),
             },
+
+            // ====================================================
+            // العناوين
+            // ====================================================
+
             headers: <String>[
               'التاريخ',
               'الحركة',
               'البيان',
-              'السيارة',
+              'التحميل',
               'السائق',
               'طن',
               'سعر الطن',
@@ -122,48 +283,145 @@ class PdfGenerator {
               'دائن',
               'الرصيد',
             ],
-            data: events.map((ev) {
-              final double debit = (ev['debit'] as num?)?.toDouble() ?? 0.0;
-              final double credit = (ev['credit'] as num?)?.toDouble() ?? 0.0;
-              final double balance = (ev['balance'] as num?)?.toDouble() ?? 0.0;
-              final double weight = (ev['weight'] as num?)?.toDouble() ?? 0.0;
-              final double price = (ev['price'] as num?)?.toDouble() ?? 0.0;
 
-              final String vehicle = (ev['vehicle'] ?? '').toString();
-              final String driver = (ev['driver'] ?? '').toString();
-              final String itemOrDesc = (ev['desc'] ?? '').toString();
-              final String actionType = (ev['type'] ?? '').toString();
+            // ====================================================
+            // البيانات
+            // ====================================================
+
+            data: events.map((ev) {
+
+              final double debit =
+                  (ev['debit'] as num?)?.toDouble() ?? 0.0;
+
+              final double credit =
+                  (ev['credit'] as num?)?.toDouble() ?? 0.0;
+
+              final double balance =
+                  (ev['balance'] as num?)?.toDouble() ?? 0.0;
+
+              final double weight =
+                  (ev['weight'] as num?)?.toDouble() ?? 0.0;
+
+              final double price =
+                  (ev['price'] as num?)?.toDouble() ?? 0.0;
+
+              final String vehicle =
+                  (ev['vehicle'] ?? '').toString();
+
+              final String driver =
+                  (ev['driver'] ?? '').toString();
+
+              final String itemOrDesc =
+                  (ev['desc'] ?? '').toString();
+
+              final String actionType =
+                  (ev['type'] ?? '').toString();
+
+              final String date =
+                  ev['date']?.toString() ?? '';
+
+              // ==================================================
+              // مهم:
+              //
+              // لا نعكس البيانات هنا.
+              //
+              // نفس ترتيب headers:
+              //
+              // التاريخ
+              // الحركة
+              // البيان
+              // التحميل
+              // السائق
+              // طن
+              // سعر الطن
+              // مدين
+              // دائن
+              // الرصيد
+              //
+              // وبسبب RTL سيكون التاريخ يميناً.
+              // ==================================================
 
               return [
-                ev['date']?.toString() ?? '',
+
+                // 1 - التاريخ
+                date,
+
+                // 2 - الحركة
                 actionType,
+
+                // 3 - البيان
                 itemOrDesc,
+
+                // 4 - التحميل
                 vehicle,
+
+                // 5 - السائق
                 driver,
-                weight > 0 ? weight.toStringAsFixed(2) : '',
-                price > 0 ? price.toStringAsFixed(2) : '',
-                debit > 0 ? debit.toStringAsFixed(2) : '0.00',
-                credit > 0 ? credit.toStringAsFixed(2) : '0.00',
+
+                // 6 - طن
+                weight > 0
+                    ? weight.toStringAsFixed(2)
+                    : '',
+
+                // 7 - سعر الطن
+                price > 0
+                    ? price.toStringAsFixed(2)
+                    : '',
+
+                // 8 - مدين
+                debit > 0
+                    ? debit.toStringAsFixed(2)
+                    : '0.00',
+
+                // 9 - دائن
+                credit > 0
+                    ? credit.toStringAsFixed(2)
+                    : '0.00',
+
+                // 10 - الرصيد
                 balance.toStringAsFixed(2),
               ];
             }).toList(),
           ),
-          pw.SizedBox(height: 14),
+
+          pw.SizedBox(height: 12),
+
+          // ======================================================
+          // الرصيد النهائي
+          // ======================================================
+
           pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
+            mainAxisAlignment: pw.MainAxisAlignment.start,
             children: [
+
               pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.blueGrey800, width: 1),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  border: pw.Border.all(
+                    color: PdfColors.blueGrey800,
+                    width: 1,
+                  ),
+
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+
                   color: PdfColors.grey100,
                 ),
+
                 child: pw.Text(
-                  'الرصيد النهائي: ${lastBalance.toStringAsFixed(2)} ج.م',
+                  'الرصيد النهائي: '
+                  '${lastBalance.toStringAsFixed(2)} ج.م',
+
                   textDirection: pw.TextDirection.rtl,
+
                   style: pw.TextStyle(
-                    fontSize: 12,
+                    font: fontBold,
+                    fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.black,
                   ),
@@ -175,9 +433,17 @@ class PdfGenerator {
       ),
     );
 
+    // ============================================================
+    // فتح شاشة الطباعة
+    // ============================================================
+
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
+      onLayout: (PdfPageFormat format) async {
+        return pdf.save();
+      },
+
       name: 'كشف_حساب_${person.name}',
+
       format: PdfPageFormat.a4.landscape,
     );
   }
