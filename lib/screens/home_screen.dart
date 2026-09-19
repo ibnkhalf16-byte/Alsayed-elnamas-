@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_screen.dart';
-import 'trips/trips_screen.dart';
 import 'persons/persons_screen.dart';
 import 'settings/settings_screen.dart';
 
@@ -19,9 +18,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // تم إزالة TripsScreen من هنا لتتطابق الواجهة مع الصورة التي تحتوي على 3 تبويبات فقط
     _pages = [
       DashboardScreen(onNavigateTab: (index) => setState(() => _currentIndex = index)),
-      const TripsScreen(),
       const PersonsScreen(),
       const SettingsScreen(),
     ];
@@ -38,14 +37,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,
-          onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+          onDestinationSelected: (idx) async {
+            // التحقق إذا كان المستخدم يضغط على تبويب "الإعدادات" (التبويب رقم 2)
+            if (idx == 2) {
+              final isAuthorized = await SettingsScreen.verifyPassword(context);
+              // لن يتم تغيير الصفحة إلا إذا كانت كلمة المرور صحيحة
+              if (isAuthorized) {
+                setState(() => _currentIndex = idx);
+              }
+            } else {
+              // التنقل الطبيعي لباقي التبويبات (الرئيسية والأطراف)
+              setState(() => _currentIndex = idx);
+            }
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),
               selectedIcon: Icon(Icons.dashboard),
               label: 'الرئيسية',
             ),
-            
             NavigationDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
