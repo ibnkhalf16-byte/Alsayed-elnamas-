@@ -1,4 +1,3 @@
-import 'dart:ui' as dart_ui;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +9,9 @@ import '../../models/person_model.dart';
 import '../settings/settings_screen.dart';
 
 class PaymentsScreen extends StatefulWidget {
-  const PaymentsScreen({Key? key}) : super(key: key);
+  final String? initialDirection; // 'from_customer' or 'to_supplier'
+
+  const PaymentsScreen({Key? key, this.initialDirection}) : super(key: key);
 
   @override
   State<PaymentsScreen> createState() => _PaymentsScreenState();
@@ -47,11 +48,15 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
-  void openPaymentDialog({PaymentModel? existing, String? initialPersonId}) {
+  void openPaymentDialog({PaymentModel? existing, String? initialPersonId, String? preselectedDirection}) {
     final isEdit = existing != null;
     final formKey = GlobalKey<FormState>();
     String? selectedPerson = existing?.personId ?? initialPersonId;
-    String direction = existing?.direction ?? 'to_supplier';
+    
+    String direction = existing?.direction ?? (preselectedDirection ?? widget.initialDirection ?? 'to_supplier');
+    
+    // قفل نوع العملية إذا تم الدخول للشاشة بنوع محدد
+    bool isDirectionLocked = (preselectedDirection != null) || (widget.initialDirection != null) || existing != null;
 
     DateTime selectedDate = existing != null
         ? (DateTime.tryParse(existing.date) ?? DateTime.now())
@@ -66,7 +71,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: dart_ui.TextDirection.rtl,
+          textDirection: TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(isEdit ? 'تعديل سند سداد' : 'تسجيل سند سداد'),
@@ -117,7 +122,13 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         ButtonSegment(value: 'from_customer', label: Text('تحصيل من عميل (وارد)')),
                       ],
                       selected: {direction},
-                      onSelectionChanged: (s) => setModalState(() => direction = s.first),
+                      onSelectionChanged: isDirectionLocked 
+                        ? (s) {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text('نوع السند ثابت من هذه الشاشة ولا يمكن تغييره'))
+                             );
+                          }
+                        : (s) => setModalState(() => direction = s.first),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -189,30 +200,41 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // تصفية القائمة بناءً على المعامل المرر إذا كان موجوداً
+    final filteredPayments = _payments.where((p) {
+      if (widget.initialDirection != null && p.direction != widget.initialDirection) return false;
+      return true;
+    }).toList();
+
+    // تخصيص عنوان الشاشة
+    String appBarTitle = 'سندات السداد والتحصيل';
+    if (widget.initialDirection == 'from_customer') appBarTitle = 'سندات التحصيل النقدية';
+    if (widget.initialDirection == 'to_supplier') appBarTitle = 'سندات سداد الدفعات';
+
     return Directionality(
-      textDirection: dart_ui.TextDirection.rtl,
+      textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('سندات السداد والتحصيل')),
+        appBar: AppBar(title: Text(appBarTitle)),
         floatingActionButton: FloatingActionButton(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          onPressed: () => openPaymentDialog(),
+          onPressed: () => openPaymentDialog(preselectedDirection: widget.initialDirection),
           child: const Icon(Icons.add),
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _payments.isEmpty
+            : filteredPayments.isEmpty
                 ? const Center(
                     child: Text(
-                      'لا توجد سندات سداد مسجلة حالياً',
+                      'لا توجد سندات مسجلة حالياً',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
                     ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _payments.length,
+                    itemCount: filteredPayments.length,
                     itemBuilder: (ctx, i) {
-                      final p = _payments[i];
+                      final p = filteredPayments[i];
                       final isFromCustomer = p.direction == 'from_customer';
 
                       return Card(
