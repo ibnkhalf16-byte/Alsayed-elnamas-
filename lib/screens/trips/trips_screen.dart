@@ -208,7 +208,7 @@ class _TripsScreenState extends State<TripsScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: carCtrl,
-                            decoration: const InputDecoration(labelText: 'رقم السيارة'),
+                            decoration: const InputDecoration(labelText: 'التحميل'),
                           ),
                         ),
                         const SizedBox(width: 8),
