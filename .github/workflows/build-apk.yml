@@ -19,11 +19,8 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Accept Android Licenses
-        run: yes | sdkmanager --licenses || true
+        run: yes | flutter doctor --android-licenses || true
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
