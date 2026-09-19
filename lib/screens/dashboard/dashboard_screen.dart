@@ -1,4 +1,4 @@
-٨import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../core/database/database_helper.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
@@ -9,8 +9,6 @@ import '../../models/payment_model.dart';
 import '../trips/trips_screen.dart';
 import '../payments/payments_screen.dart';
 import '../statements/statement_screen.dart';
-import '../profits/profits_screen.dart';
-import '../persons/persons_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Function(int) onNavigateTab;
@@ -144,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('حسابات السيد النماس', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('حسابات علاء أبو شادي', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
         ),
         body: _isLoading
@@ -280,3 +278,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+
