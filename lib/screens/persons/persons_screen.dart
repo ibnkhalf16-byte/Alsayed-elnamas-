@@ -20,6 +20,7 @@ class PersonsScreen extends StatefulWidget {
 class _PersonsScreenState extends State<PersonsScreen> {
   List<PersonModel> _persons = [];
   Map<String, double> _balances = {};
+  String _searchQuery = '';
   bool _isLoading = true;
 
   @override
@@ -77,6 +78,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextFormField(
                     controller: nameCtrl,
@@ -94,25 +96,37 @@ class _PersonsScreenState extends State<PersonsScreen> {
                     controller: addressCtrl,
                     decoration: const InputDecoration(labelText: 'العنوان أو المركز'),
                   ),
+                  const SizedBox(height: 16),
+                  const Text('رصيد أول المدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: recCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'لك عنده (المبلغ الذي يدين لك به)',
+                      labelStyle: TextStyle(color: AppColors.receivableGreen, fontWeight: FontWeight.bold),
+                      prefixIcon: Icon(Icons.arrow_downward, color: AppColors.receivableGreen),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                       final val = double.tryParse(v ?? '0');
+                       if (val != null && val < 0) return 'لا يمكن إدخال قيمة سالبة';
+                       return null;
+                    },
+                  ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: recCtrl,
-                          decoration: const InputDecoration(labelText: 'أول المدة (لك عنده)'),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: payCtrl,
-                          decoration: const InputDecoration(labelText: 'أول المدة (له عندك)'),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                    ],
+                  TextFormField(
+                    controller: payCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'له عندك (المبلغ الذي تدين له به)',
+                      labelStyle: TextStyle(color: AppColors.payableRed, fontWeight: FontWeight.bold),
+                      prefixIcon: Icon(Icons.arrow_upward, color: AppColors.payableRed),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                       final val = double.tryParse(v ?? '0');
+                       if (val != null && val < 0) return 'لا يمكن إدخال قيمة سالبة';
+                       return null;
+                    },
                   ),
                 ],
               ),
@@ -125,6 +139,14 @@ class _PersonsScreenState extends State<PersonsScreen> {
                 if (!formKey.currentState!.validate()) return;
                 final rec = double.tryParse(recCtrl.text.trim()) ?? 0.0;
                 final pay = double.tryParse(payCtrl.text.trim()) ?? 0.0;
+                
+                if (rec > 0 && pay > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('الرجاء إدخال رصيد في جهة واحدة فقط (إما لك عنده أو له عندك)')),
+                  );
+                  return;
+                }
+                
                 final db = await DatabaseHelper.instance.database;
 
                 if (isEdit) {
@@ -165,36 +187,70 @@ class _PersonsScreenState extends State<PersonsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredPersons = _persons.where((p) {
+      if (_searchQuery.isEmpty) return true;
+      return p.name.toLowerCase().contains(_searchQuery.trim().toLowerCase());
+    }).toList();
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('دليل العملاء والموردين')),
-        floatingActionButton: FloatingActionButton(
+        appBar: AppBar(
+          title: const Text('دليل العملاء والموردين'),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: const InputDecoration(
+                    hintText: 'ابحث باسم الطرف...',
+                    prefixIcon: Icon(Icons.search, color: AppColors.primary),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           onPressed: () => openPersonDialog(),
-          child: const Icon(Icons.person_add),
+          icon: const Icon(Icons.person_add),
+          label: const Text('إضافة طرف'),
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _persons.isEmpty
+            : filteredPersons.isEmpty
                 ? const Center(
                     child: Text(
-                      'لا يوجد عملاء أو موردون مسجلون',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                      'لا يوجد أطراف مطابقة للبحث',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _persons.length,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filteredPersons.length,
                     itemBuilder: (ctx, i) {
-                      final p = _persons[i];
+                      final p = filteredPersons[i];
                       final balance = _balances[p.id] ?? 0.0;
                       final isReceivable = balance >= 0;
 
                       return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: isReceivable ? AppColors.receivableGreen.withOpacity(0.5) : AppColors.payableRed.withOpacity(0.5)),
+                        ),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -204,41 +260,28 @@ class _PersonsScreenState extends State<PersonsScreen> {
                             );
                           },
                           child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                            padding: const EdgeInsets.all(16.0),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
-                                      width: 2.5,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      isReceivable ? Icons.arrow_downward : Icons.arrow_upward,
-                                      size: 22,
-                                      color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
-                                    ),
+                                CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: isReceivable ? AppColors.receivableGreen.withOpacity(0.1) : AppColors.payableRed.withOpacity(0.1),
+                                  child: Text(
+                                    p.name.substring(0, 1),
+                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         p.name,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        p.phone.isNotEmpty ? p.phone : (p.address.isNotEmpty ? p.address : 'بدون بيانات إضافية'),
-                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                      ),
+                                      if (p.phone.isNotEmpty)
+                                        Text(p.phone, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                                     ],
                                   ),
                                 ),
@@ -246,25 +289,25 @@ class _PersonsScreenState extends State<PersonsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      AppFormatters.formatCurrency(balance.abs()),
+                                      isReceivable ? 'مستحق لك عنده' : 'مطلوب له عندك',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 12,
                                         color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     Text(
-                                      isReceivable ? 'مستحق (لك عنده)' : 'مطلوب (له عندك)',
+                                      AppFormatters.formatCurrency(balance.abs()),
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                         color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(width: 6),
                                 PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
                                   onSelected: (val) async {
                                     if (val == 'edit') {
                                       openPersonDialog(existing: p);
