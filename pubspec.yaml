@@ -9,8 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   flutter_localizations:
     sdk: flutter
+
   sqflite: ^2.3.0
   sqflite_common_ffi: ^2.3.0
   path: ^1.8.3
@@ -27,3 +29,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/fonts/NotoNaskhArabic-Regular.ttf
+    - assets/fonts/NotoNaskhArabic-Bold.ttf
