@@ -1,4 +1,4 @@
-import 'dart:ui' as dart_ui;
+// FILE: lib/screens/trips/trips_screen.dart
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +11,9 @@ import '../../models/person_model.dart';
 import '../settings/settings_screen.dart';
 
 class TripsScreen extends StatefulWidget {
-  const TripsScreen({Key? key}) : super(key: key);
+  final String? initialOperation;
+
+  const TripsScreen({Key? key, this.initialOperation}) : super(key: key);
 
   @override
   State<TripsScreen> createState() => _TripsScreenState();
@@ -59,7 +61,9 @@ class _TripsScreenState extends State<TripsScreen> {
     final isEdit = existing != null;
     final formKey = GlobalKey<FormState>();
     String? selectedPerson = existing?.personId;
-    String operation = existing?.operation ?? (preselectedOperation ?? 'purchase');
+    
+    String operation = existing?.operation ?? (preselectedOperation ?? widget.initialOperation ?? 'purchase');
+    bool isOperationLocked = (preselectedOperation != null) || (widget.initialOperation != null) || existing != null;
 
     DateTime selectedDate = existing != null
         ? (DateTime.tryParse(existing.date) ?? DateTime.now())
@@ -71,6 +75,8 @@ class _TripsScreenState extends State<TripsScreen> {
     final itemCtrl = TextEditingController(text: existing?.item ?? '');
     final weightCtrl = TextEditingController(text: existing != null ? existing.weight.toString() : '');
     final priceCtrl = TextEditingController(text: existing != null ? existing.price.toString() : '');
+    // حقل الإدخال الجديد للنولون
+    final nolonCtrl = TextEditingController(text: existing != null && existing.nolon > 0 ? existing.nolon.toString() : '');
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
 
     showDialog(
@@ -78,7 +84,7 @@ class _TripsScreenState extends State<TripsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: dart_ui.TextDirection.rtl,
+          textDirection: TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(
@@ -132,7 +138,13 @@ class _TripsScreenState extends State<TripsScreen> {
                         ButtonSegment(value: 'sale', label: Text('بيع لعميل')),
                       ],
                       selected: {operation},
-                      onSelectionChanged: (s) => setModalState(() => operation = s.first),
+                      onSelectionChanged: isOperationLocked 
+                        ? (s) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('نوع العملية ثابت من هذه الشاشة ولا يمكن تغييره'))
+                            );
+                          }
+                        : (s) => setModalState(() => operation = s.first),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -173,6 +185,24 @@ class _TripsScreenState extends State<TripsScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
+                    // إضافة حقل النولون هنا
+                    TextFormField(
+                      controller: nolonCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'النولون للطن (اختياري)',
+                        hintText: 'قيمة النولون لكل طن',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) {
+                        if (v != null && v.isNotEmpty) {
+                           if (double.tryParse(v) == null || double.parse(v) < 0) {
+                             return 'قيمة غير صحيحة';
+                           }
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
@@ -204,9 +234,14 @@ class _TripsScreenState extends State<TripsScreen> {
               ElevatedButton(
                 onPressed: () async {
                   if (!formKey.currentState!.validate() || selectedPerson == null) return;
+                  
                   final weight = double.parse(weightCtrl.text.trim());
                   final price = double.parse(priceCtrl.text.trim());
-                  final total = weight * price;
+                  final nolon = nolonCtrl.text.trim().isNotEmpty ? double.parse(nolonCtrl.text.trim()) : 0.0;
+                  
+                  // المعادلة الجديدة: (السعر * الوزن) + (النولون * الوزن)
+                  final total = (weight * price) + (weight * nolon);
+                  
                   final db = await DatabaseHelper.instance.database;
 
                   if (isEdit) {
@@ -223,6 +258,7 @@ class _TripsScreenState extends State<TripsScreen> {
                       item: itemCtrl.text.trim(),
                       weight: weight,
                       price: price,
+                      nolon: nolon, // حفظ النولون
                       total: total,
                       notes: notesCtrl.text.trim(),
                       sourceTripId: existing.sourceTripId,
@@ -239,6 +275,7 @@ class _TripsScreenState extends State<TripsScreen> {
                       item: itemCtrl.text.trim(),
                       weight: weight,
                       price: price,
+                      nolon: nolon, // حفظ النولون
                       total: total,
                       notes: notesCtrl.text.trim(),
                     );
@@ -278,13 +315,14 @@ class _TripsScreenState extends State<TripsScreen> {
     final dateCtrl = TextEditingController(text: DateFormat('yyyy-MM-dd').format(saleDate));
     final weightCtrl = TextEditingController(text: remaining.toString());
     final priceCtrl = TextEditingController();
+    final nolonCtrl = TextEditingController(); // نولون عند البيع
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          textDirection: dart_ui.TextDirection.rtl,
+          textDirection: TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('بيع ونقل من النقلة المشتراة'),
@@ -349,6 +387,12 @@ class _TripsScreenState extends State<TripsScreen> {
                     decoration: const InputDecoration(labelText: 'سعر بيع الطن (ج.م)'),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: nolonCtrl,
+                    decoration: const InputDecoration(labelText: 'نولون البيع للطن (اختياري)'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
                 ],
               ),
             ),
@@ -358,6 +402,8 @@ class _TripsScreenState extends State<TripsScreen> {
                 onPressed: () async {
                   final w = double.tryParse(weightCtrl.text.trim()) ?? 0;
                   final p = double.tryParse(priceCtrl.text.trim()) ?? 0;
+                  final n = nolonCtrl.text.trim().isNotEmpty ? double.parse(nolonCtrl.text.trim()) : 0.0;
+                  
                   if (selectedCustomer == null || w <= 0 || p <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('يرجى ملء جميع الحقول بصورة صحيحة')),
@@ -374,6 +420,9 @@ class _TripsScreenState extends State<TripsScreen> {
                   final isAuthorized = await SettingsScreen.verifyPassword(context);
                   if (!isAuthorized) return;
 
+                  // حساب الإجمالي مع النولون للبيع
+                  final totalSale = (w * p) + (w * n);
+
                   final db = await DatabaseHelper.instance.database;
                   final saleTrip = TripModel(
                     id: const Uuid().v4(),
@@ -385,7 +434,8 @@ class _TripsScreenState extends State<TripsScreen> {
                     item: purchase.item,
                     weight: w,
                     price: p,
-                    total: w * p,
+                    nolon: n,
+                    total: totalSale,
                     sourceTripId: purchase.id,
                   );
                   await db.insert('trips', saleTrip.toMap());
@@ -415,6 +465,8 @@ class _TripsScreenState extends State<TripsScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredTrips = _trips.where((t) {
+      if (widget.initialOperation != null && t.operation != widget.initialOperation) return false;
+      
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.trim().toLowerCase();
       return t.personName.toLowerCase().contains(q) ||
@@ -423,11 +475,15 @@ class _TripsScreenState extends State<TripsScreen> {
           t.driver.toLowerCase().contains(q);
     }).toList();
 
+    String appBarTitle = 'سجل النقلات والوزنات';
+    if (widget.initialOperation == 'purchase') appBarTitle = 'سجل نقلات الشراء';
+    if (widget.initialOperation == 'sale') appBarTitle = 'سجل نقلات البيع';
+
     return Directionality(
-      textDirection: dart_ui.TextDirection.rtl,
+      textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('سجل النقلات والوزنات'),
+          title: Text(appBarTitle),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(56),
             child: Padding(
@@ -455,7 +511,7 @@ class _TripsScreenState extends State<TripsScreen> {
         floatingActionButton: FloatingActionButton(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          onPressed: () => openTripDialog(),
+          onPressed: () => openTripDialog(preselectedOperation: widget.initialOperation),
           child: const Icon(Icons.add),
         ),
         body: _isLoading
@@ -538,13 +594,22 @@ class _TripsScreenState extends State<TripsScreen> {
                                       color: AppColors.primaryDark,
                                     ),
                                   ),
-                                  if (t.vehicle.isNotEmpty || t.driver.isNotEmpty)
+                                  if (t.nolon > 0)
                                     Text(
-                                      'سيارة: ${t.vehicle} | ${t.driver}',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      'نولون: ${t.nolon.toStringAsFixed(2)} للطن',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.warningOrange, fontWeight: FontWeight.bold),
                                     ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
+                              if (t.vehicle.isNotEmpty || t.driver.isNotEmpty)
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'سيارة: ${t.vehicle} | ${t.driver}',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ),
                               const Divider(height: 16),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
