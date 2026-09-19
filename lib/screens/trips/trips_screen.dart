@@ -78,7 +78,8 @@ class _TripsScreenState extends State<TripsScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Directionality(
-          
+  textDirection: TextDirection.rtl,
+ 
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(
@@ -283,8 +284,8 @@ class _TripsScreenState extends State<TripsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setSaleState) => Directionality(
-          
+      builder: (context, setModalState) => Directionality(
+  textDirection: TextDirection.rtl,
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('بيع ونقل من النقلة المشتراة'),
