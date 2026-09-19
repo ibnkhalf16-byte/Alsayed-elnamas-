@@ -4,7 +4,6 @@ import '../../models/payment_model.dart';
 import '../utils/app_formatters.dart';
 
 class AccountingEngine {
-  /// حساب حالات النقلات الأربعة وفق نظام الأسبقية FIFO والربط المباشر
   static Map<String, String> calculateTripStatuses(List<TripModel> rows) {
     Map<String, Map<String, dynamic>> purchases = {};
     for (var r in rows.where((t) => t.operation == 'purchase')) {
@@ -19,7 +18,6 @@ class AccountingEngine {
     Map<String, double> matched = {for (var r in rows) r.id: 0.0};
     Map<String, String> statuses = {};
 
-    // 1. المبيعات المرتبطة مباشرة بنقلة شراء محددة
     var linkedSales = rows.where((r) => r.operation == 'sale' && r.sourceTripId != null).toList();
     linkedSales.sort((a, b) => a.date.compareTo(b.date));
 
@@ -44,7 +42,6 @@ class AccountingEngine {
       }
     }
 
-    // 2. المبيعات غير المرتبطة (نظام FIFO بالأقدمية)
     Map<String, List<String>> queues = {};
     for (var r in rows.where((t) => t.operation == 'purchase')) {
       String it = AppFormatters.normalizeItem(r.item);
@@ -82,7 +79,6 @@ class AccountingEngine {
       }
     }
 
-    // 3. تحديد حالات نقلات الشراء
     for (var r in rows.where((t) => t.operation == 'purchase')) {
       double rem = purchases[r.id]!['remaining'];
       double sld = sold[r.id] ?? 0.0;
@@ -98,7 +94,6 @@ class AccountingEngine {
     return statuses;
   }
 
-  /// حساب تكلفة البضاعة المباعة والأرباح الحقيقية
   static Map<String, dynamic> calculateRealProfits(List<TripModel> rows) {
     double totalRevenue = 0.0;
     double totalCOGS = 0.0;
@@ -147,102 +142,61 @@ class AccountingEngine {
     };
   }
 
-  /// احتساب كشف الحساب التراكمي زمنياً
   static List<Map<String, dynamic>> calculateStatement(
     PersonModel person,
     List<TripModel> trips,
     List<PaymentModel> payments,
   ) {
     List<Map<String, dynamic>> events = [];
-
-    if (person.openingReceivable > 0) {
+    
+    double netOpening = person.openingReceivable - person.openingPayable;
+    
+    if (netOpening != 0) {
       events.add({
+        'sort_time': 0, // لضمان ظهوره كأول حركة دائماً
         'date': 'أول المدة',
         'type': 'رصيد افتتاح',
-        'desc': 'رصيد أول المدة (مدين)',
+        'desc': 'رصيد أول المدة',
         'vehicle': '',
         'driver': '',
         'weight': 0.0,
         'price': 0.0,
-        'debit': person.openingReceivable,
-        'credit': 0.0,
-      });
-    }
-    if (person.openingPayable > 0) {
-      events.add({
-        'date': 'أول المدة',
-        'type': 'رصيد افتتاح',
-        'desc': 'رصيد أول المدة (دائن)',
-        'vehicle': '',
-        'driver': '',
-        'weight': 0.0,
-        'price': 0.0,
-        'debit': 0.0,
-        'credit': person.openingPayable,
+        'debit': netOpening > 0 ? netOpening : 0.0,
+        'credit': netOpening < 0 ? netOpening.abs() : 0.0,
       });
     }
 
     for (var t in trips.where((t) => t.personId == person.id)) {
-      if (t.operation == 'sale') {
-        events.add({
-          'date': t.date,
-          'type': 'بيع',
-          'desc': 'نقلة ${t.item} (${t.weight} طن)',
-          'vehicle': t.vehicle,
-          'driver': t.driver,
-          'weight': t.weight,
-          'price': t.price,
-          'debit': t.total,
-          'credit': 0.0,
-        });
-      } else {
-        events.add({
-          'date': t.date,
-          'type': 'شراء',
-          'desc': 'نقلة ${t.item} (${t.weight} طن)',
-          'vehicle': t.vehicle,
-          'driver': t.driver,
-          'weight': t.weight,
-          'price': t.price,
-          'debit': 0.0,
-          'credit': t.total,
-        });
-      }
+      events.add({
+        'sort_time': DateTime.tryParse(t.date)?.millisecondsSinceEpoch ?? 1,
+        'date': t.date,
+        'type': t.operation == 'sale' ? 'بيع' : 'شراء',
+        'desc': 'نقلة ${t.item} (${t.weight} طن)',
+        'vehicle': t.vehicle,
+        'driver': t.driver,
+        'weight': t.weight,
+        'price': t.price,
+        'debit': t.operation == 'sale' ? t.total : 0.0,
+        'credit': t.operation == 'purchase' ? t.total : 0.0,
+      });
     }
 
     for (var p in payments.where((p) => p.personId == person.id)) {
-      if (p.direction == 'from_customer') {
-        events.add({
-          'date': p.date,
-          'type': 'سداد من عميل',
-          'desc': p.description.isNotEmpty ? p.description : 'سداد نقدي',
-          'vehicle': '',
-          'driver': '',
-          'weight': 0.0,
-          'price': 0.0,
-          'debit': 0.0,
-          'credit': p.amount,
-        });
-      } else {
-        events.add({
-          'date': p.date,
-          'type': 'سداد لمورد',
-          'desc': p.description.isNotEmpty ? p.description : 'سداد نقدي',
-          'vehicle': '',
-          'driver': '',
-          'weight': 0.0,
-          'price': 0.0,
-          'debit': p.amount,
-          'credit': 0.0,
-        });
-      }
+      events.add({
+        'sort_time': DateTime.tryParse(p.date)?.millisecondsSinceEpoch ?? 1,
+        'date': p.date,
+        'type': p.direction == 'from_customer' ? 'تحصيل من عميل' : 'سداد لمورد',
+        'desc': p.description.isNotEmpty ? p.description : (p.direction == 'from_customer' ? 'تحصيل نقدي' : 'سداد نقدي'),
+        'vehicle': '',
+        'driver': '',
+        'weight': 0.0,
+        'price': 0.0,
+        'debit': p.direction == 'to_supplier' ? p.amount : 0.0,
+        'credit': p.direction == 'from_customer' ? p.amount : 0.0,
+      });
     }
 
-    events.sort((a, b) {
-      if (a['date'] == 'أول المدة') return -1;
-      if (b['date'] == 'أول المدة') return 1;
-      return (a['date'] as String).compareTo(b['date'] as String);
-    });
+    events.sort((a, b) => (a['sort_time'] as int).compareTo(b['sort_time'] as int));
 
     double runningBalance = 0.0;
     for (var ev in events) {
