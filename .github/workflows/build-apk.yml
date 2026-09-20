@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ==========================================
       # 1. تحميل المشروع
       # ==========================================
@@ -36,7 +37,7 @@ jobs:
           cache: true
 
       # ==========================================
-      # 4. إنشاء Android تلقائياً
+      # 4. إنشاء Android
       # ==========================================
       - name: Generate Android Platform
         run: |
@@ -44,45 +45,52 @@ jobs:
           flutter create . --platforms=android --org com.elsayed.accounts
 
       # ==========================================
-      # 5. إضافة صلاحية الإنترنت
+      # 5. إعداد AndroidManifest.xml
+      #    - Internet Permission
+      #    - اسم التطبيق
       # ==========================================
-      - name: Add Internet Permission
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("android/app/src/main/AndroidManifest.xml")
-          text = path.read_text(encoding="utf-8")
-
-          permission = '<uses-permission android:name="android.permission.INTERNET"/>'
-
-          if permission not in text:
-              text = text.replace(
-                  '<manifest',
-                  '<manifest\n    ' + permission,
-                  1
-              )
-
-          path.write_text(text, encoding="utf-8")
-
-          print("Internet permission added successfully.")
-          PY
-
-      # ==========================================
-      # 6. تغيير اسم التطبيق
-      # ==========================================
-      - name: Set Android App Name
+      - name: Configure Android Manifest
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           path = Path("android/app/src/main/AndroidManifest.xml")
+
           text = path.read_text(encoding="utf-8")
 
+          # ------------------------------------------
+          # إزالة أي صلاحية إنترنت مكررة
+          # ------------------------------------------
+          text = re.sub(
+              r'\s*<uses-permission\s+android:name="android\.permission\.INTERNET"\s*/>',
+              '',
+              text
+          )
+
+          # ------------------------------------------
+          # إضافة صلاحية الإنترنت بعد إغلاق وسم manifest
+          # وليس داخله
+          # ------------------------------------------
+          manifest_end = text.find(">")
+
+          if manifest_end == -1:
+              raise RuntimeError("Could not find opening <manifest> tag.")
+
+          internet_permission = '\n    <uses-permission android:name="android.permission.INTERNET"/>'
+
+          text = (
+              text[:manifest_end + 1]
+              + internet_permission
+              + text[manifest_end + 1:]
+          )
+
+          # ------------------------------------------
+          # اسم التطبيق
+          # ------------------------------------------
           app_name = "حسابات علاء أبو شادي"
 
-          if 'android:label=' in text:
+          if re.search(r'android:label="[^"]*"', text):
               text = re.sub(
                   r'android:label="[^"]*"',
                   f'android:label="{app_name}"',
@@ -91,14 +99,43 @@ jobs:
               )
           else:
               text = text.replace(
-                  '<application',
+                  "<application",
                   f'<application android:label="{app_name}"',
                   1
               )
 
           path.write_text(text, encoding="utf-8")
 
-          print(f"Application name set to: {app_name}")
+          print("==========================================")
+          print("AndroidManifest.xml configured successfully")
+          print("App Name: حسابات علاء أبو شادي")
+          print("Internet Permission: ENABLED")
+          print("==========================================")
+          PY
+
+      # ==========================================
+      # 6. فحص AndroidManifest قبل البناء
+      # ==========================================
+      - name: Verify Android Manifest
+        run: |
+          echo "===== AndroidManifest.xml ====="
+          cat android/app/src/main/AndroidManifest.xml
+
+          echo ""
+          echo "===== Checking XML ====="
+
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          path = "android/app/src/main/AndroidManifest.xml"
+
+          try:
+              ET.parse(path)
+              print("XML VALID")
+          except Exception as e:
+              print("XML INVALID")
+              print(e)
+              raise
           PY
 
       # ==========================================
@@ -109,7 +146,7 @@ jobs:
           echo "===== Checking Logo ====="
 
           if [ -f "assets/images/logo2.png" ]; then
-            echo "Logo found:"
+            echo "Logo found successfully:"
             ls -lh assets/images/logo2.png
           else
             echo "ERROR: assets/images/logo2.png was not found!"
@@ -120,35 +157,37 @@ jobs:
       # 8. تثبيت Dependencies
       # ==========================================
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
 
       # ==========================================
-      # 9. التأكد من app_links 6.2.1
+      # 9. التحقق من app_links
       # ==========================================
       - name: Verify app_links Version
         run: |
           echo "===== Flutter Version ====="
           flutter --version
 
+          echo ""
           echo "===== Resolved app_links ====="
           grep -A 12 -B 3 "app_links:" pubspec.lock || true
 
       # ==========================================
-      # 10. إنشاء أيقونة التطبيق من logo2.png
+      # 10. إنشاء أيقونة التطبيق
       # ==========================================
       - name: Generate App Icons
         run: |
           dart run flutter_launcher_icons
 
       # ==========================================
-      # 11. فحص المشروع
+      # 11. تحليل المشروع
       # ==========================================
       - name: Analyze Project Code
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
       # ==========================================
-      # 12. بناء APK Release
+      # 12. بناء APK
       # ==========================================
       - name: Build APK Release
         run: |
@@ -161,5 +200,5 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Alaa-Accounts-Release-APK
+          name: Alsayed-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
