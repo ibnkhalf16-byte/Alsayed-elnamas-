@@ -16,14 +16,14 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
-          channel: 'stable'
+          channel: stable
           cache: true
 
       - name: Configure Flutter
@@ -31,45 +31,69 @@ jobs:
           flutter config --no-analytics
           flutter --version
 
-      - name: Ensure Android SDK 34
+      - name: Install Android SDK 34
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Recreate Android Platform
         run: |
           rm -rf android
           flutter create . \
-            --project-name elsayed_accounts \
+            --project-name alaa_accounts \
             --platforms=android \
-            --org com.elsayed.accounts
+            --org com.alaa.accounts
 
-      - name: Force Android SDK 34
+      - name: Configure Android SDK
         run: |
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+          python3 - <<'PY'
+          from pathlib import Path
 
-          echo "===== android/app/build.gradle ====="
-          grep -n "compileSdk\|targetSdk\|minSdk" android/app/build.gradle || true
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+
+          text = text.replace(
+              "compileSdk = flutter.compileSdkVersion",
+              "compileSdk = 34"
+          )
+
+          text = text.replace(
+              "compileSdkVersion flutter.compileSdkVersion",
+              "compileSdkVersion 34"
+          )
+
+          text = text.replace(
+              "targetSdk = flutter.targetSdkVersion",
+              "targetSdk = 34"
+          )
+
+          text = text.replace(
+              "targetSdkVersion flutter.targetSdkVersion",
+              "targetSdkVersion 34"
+          )
+
+          path.write_text(text)
+          PY
+
+          echo "===== Android SDK configuration ====="
+          grep -nE "compileSdk|targetSdk|minSdk" android/app/build.gradle || true
+
+      - name: Verify Android SDK
+        run: |
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed | grep -E "platforms;android-34|build-tools;34" || true
 
       - name: Install Dependencies
         run: |
+          flutter clean
           flutter pub get
 
-      - name: Analyze Project Code
+      - name: Analyze Project
         run: |
           flutter analyze || true
 
       - name: Generate App Icon
         run: |
           dart run flutter_launcher_icons
-
-      - name: Clean Flutter Build
-        run: |
-          flutter clean
-          flutter pub get
 
       - name: Build APK Release
         run: |
@@ -79,5 +103,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Alsayed-Accounts-Release-APK
+          name: Alaa-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
