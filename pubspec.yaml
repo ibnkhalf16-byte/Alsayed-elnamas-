@@ -1,6 +1,6 @@
 
 name: alaa_accounts
-description: "حسابات السيد النماس - إدارة النقلات والمحاصيل والعمليات المحاسبية"
+description: "حسابات علاء ابو شادي - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -34,6 +34,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+    
+dependency_overrides:
+  app_links: 6.2.1
 
   # مطلوب بواسطة analysis_options.yaml
   flutter_lints: ^4.0.0
