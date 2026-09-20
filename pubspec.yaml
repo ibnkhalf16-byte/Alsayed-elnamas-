@@ -11,9 +11,10 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  sqflite: ^2.3.0
-  sqflite_common_ffi: ^2.3.0
-  path: ^1.8.3
+  
+  # تم إزالة SQLite وإضافة Supabase
+  supabase_flutter: ^2.4.0 
+  
   connectivity_plus: ^5.0.2
   uuid: ^4.3.3
   intl: any
