@@ -12,7 +12,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   
-  # حزمة الاتصال السحابي بديلة لـ SQLite
+  # حزمة الاتصال بقاعدة بيانات Supabase (بديلة لـ SQLite)
   supabase_flutter: ^2.4.0 
   
   connectivity_plus: ^5.0.2
@@ -20,9 +20,10 @@ dependencies:
   intl: any
   crypto: ^3.0.3
   pdf: ^3.10.8
+  # تم تخفيض الإصدار لحل تعارض الحزم مع app_links
   printing: ^5.13.1 
 
-# حل جذري لمشكلة توقف البناء في GitHub Actions وتعارض الحزم
+# حل مشكلة توقف البناء في GitHub Actions
 dependency_overrides:
   app_links: 6.1.1
 
@@ -46,6 +47,6 @@ flutter:
   fonts:
     - family: NotoNaskhArabic
       fonts:
-        - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
-        - asset: assets/fonts/NotoNaskhArabic-Bold.ttf
+        - asset: assets/fonts/NotoSansArabic-Regular.ttf
+        - asset: assets/fonts/NotoSansArabic-Bold.ttf
           weight: 700
