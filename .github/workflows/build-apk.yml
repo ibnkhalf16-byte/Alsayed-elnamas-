@@ -26,28 +26,54 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Platform
+      - name: Configure Flutter
         run: |
           flutter config --no-analytics
-          rm -rf android/
-          flutter create . --project-name elsayed_accounts --platforms=android --org com.elsayed.accounts
+          flutter --version
 
-      - name: Force Android compileSdk 34
+      - name: Ensure Android SDK 34
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+      - name: Recreate Android Platform
+        run: |
+          rm -rf android
+          flutter create . \
+            --project-name elsayed_accounts \
+            --platforms=android \
+            --org com.elsayed.accounts
+
+      - name: Force Android SDK 34
         run: |
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
 
+          echo "===== android/app/build.gradle ====="
+          grep -n "compileSdk\|targetSdk\|minSdk" android/app/build.gradle || true
+
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
 
       - name: Analyze Project Code
-        run: flutter analyze || true
-        
+        run: |
+          flutter analyze || true
+
       - name: Generate App Icon
-        run: dart run flutter_launcher_icons
+        run: |
+          dart run flutter_launcher_icons
+
+      - name: Clean Flutter Build
+        run: |
+          flutter clean
+          flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release --no-tree-shake-icons
+        run: |
+          flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         if: always()
