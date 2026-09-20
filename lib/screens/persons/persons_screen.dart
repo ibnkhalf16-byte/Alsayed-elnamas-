@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import '../../core/database/database_helper.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/utils/app_formatters.dart';
+import '../../core/accounting/accounting_engine.dart';
 import '../../models/person_model.dart';
 import '../../models/trip_model.dart';
 import '../../models/payment_model.dart';
-import '../../core/accounting/accounting_engine.dart';
-import '../settings/settings_screen.dart';
 import '../statements/statement_screen.dart';
 
 class PersonsScreen extends StatefulWidget {
@@ -18,324 +14,196 @@ class PersonsScreen extends StatefulWidget {
 }
 
 class _PersonsScreenState extends State<PersonsScreen> {
-  List<PersonModel> _persons = [];
-  Map<String, double> _balances = {};
-  String _searchQuery = '';
+  List<Map<String, dynamic>> _personsWithBalances = [];
+  List<Map<String, dynamic>> _filteredPersons = [];
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadPersonsAndBalances();
+    _loadPersonsAndCalculateBalances();
   }
 
-  Future<void> _loadPersonsAndBalances() async {
+  Future<void> _loadPersonsAndCalculateBalances() async {
     setState(() => _isLoading = true);
     final db = await DatabaseHelper.instance.database;
-    final pMaps = await db.query('persons', orderBy: 'name ASC');
-    final tMaps = await db.query('trips');
-    final payMaps = await db.query('payments');
 
-    final persons = pMaps.map((m) => PersonModel.fromMap(m)).toList();
-    final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
-    final payments = payMaps.map((m) => PaymentModel.fromMap(m)).toList();
+    // جلب جميع البيانات اللازمة للحساب
+    final personsData = await db.query('persons');
+    final tripsData = await db.query('trips');
+    final paymentsData = await db.query('payments');
 
-    Map<String, double> balancesMap = {};
-    for (var p in persons) {
-      final events = AccountingEngine.calculateStatement(p, trips, payments);
-      final lastBalance = events.isNotEmpty ? (events.last['balance'] as double) : 0.0;
-      balancesMap[p.id] = lastBalance;
-    }
+    final List<PersonModel> persons = personsData.map((e) => PersonModel.fromMap(e)).toList();
+    final List<TripModel> allTrips = tripsData.map((e) => TripModel.fromMap(e)).toList();
+    final List<PaymentModel> allPayments = paymentsData.map((e) => PaymentModel.fromMap(e)).toList();
 
-    if (mounted) {
-      setState(() {
-        _persons = persons;
-        _balances = balancesMap;
-        _isLoading = false;
+    List<Map<String, dynamic>> computedList = [];
+
+    for (var person in persons) {
+      // استخدام المحرك المحاسبي لحساب كشف الحساب الفعلي لكل طرف
+      final statement = AccountingEngine.calculateStatement(person, allTrips, allPayments);
+      
+      // الرصيد الفعلي هو رصيد آخر حركة في كشف الحساب، أو الرصيد الافتتاحي إذا لم توجد حركات
+      double actualBalance = 0.0;
+      if (statement.isNotEmpty) {
+        actualBalance = statement.last['balance'] as double;
+      } else {
+        actualBalance = person.openingReceivable - person.openingPayable;
+      }
+
+      computedList.add({
+        'person': person,
+        'actual_balance': actualBalance,
       });
     }
+
+    setState(() {
+      _personsWithBalances = computedList;
+      _filteredPersons = computedList;
+      _isLoading = false;
+    });
   }
 
-  void openPersonDialog({PersonModel? existing}) {
-    final isEdit = existing != null;
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final phoneCtrl = TextEditingController(text: existing?.phone ?? '');
-    final addressCtrl = TextEditingController(text: existing?.address ?? '');
-    final recCtrl = TextEditingController(text: existing != null ? existing.openingReceivable.toString() : '0');
-    final payCtrl = TextEditingController(text: existing != null ? existing.openingPayable.toString() : '0');
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(isEdit ? 'تعديل بيانات طرف' : 'إضافة طرف جديد (عميل / مورد)'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'الاسم بالكامل'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: phoneCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم الهاتف'),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: addressCtrl,
-                    decoration: const InputDecoration(labelText: 'العنوان أو المركز'),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('رصيد أول المدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: recCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'لك عنده (المبلغ الذي يدين لك به)',
-                      labelStyle: TextStyle(color: AppColors.receivableGreen, fontWeight: FontWeight.bold),
-                      prefixIcon: Icon(Icons.arrow_downward, color: AppColors.receivableGreen),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) {
-                       final val = double.tryParse(v ?? '0');
-                       if (val != null && val < 0) return 'لا يمكن إدخال قيمة سالبة';
-                       return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: payCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'له عندك (المبلغ الذي تدين له به)',
-                      labelStyle: TextStyle(color: AppColors.payableRed, fontWeight: FontWeight.bold),
-                      prefixIcon: Icon(Icons.arrow_upward, color: AppColors.payableRed),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) {
-                       final val = double.tryParse(v ?? '0');
-                       if (val != null && val < 0) return 'لا يمكن إدخال قيمة سالبة';
-                       return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final rec = double.tryParse(recCtrl.text.trim()) ?? 0.0;
-                final pay = double.tryParse(payCtrl.text.trim()) ?? 0.0;
-                
-                if (rec > 0 && pay > 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('الرجاء إدخال رصيد في جهة واحدة فقط (إما لك عنده أو له عندك)')),
-                  );
-                  return;
-                }
-                
-                final db = await DatabaseHelper.instance.database;
-
-                if (isEdit) {
-                  final isAuthorized = await SettingsScreen.verifyPassword(context);
-                  if (!isAuthorized) return;
-
-                  final updated = PersonModel(
-                    id: existing.id,
-                    name: nameCtrl.text.trim(),
-                    phone: phoneCtrl.text.trim(),
-                    address: addressCtrl.text.trim(),
-                    openingReceivable: rec,
-                    openingPayable: pay,
-                  );
-                  await db.update('persons', updated.toMap(), where: 'id = ?', whereArgs: [existing.id]);
-                } else {
-                  final newP = PersonModel(
-                    id: const Uuid().v4(),
-                    name: nameCtrl.text.trim(),
-                    phone: phoneCtrl.text.trim(),
-                    address: addressCtrl.text.trim(),
-                    openingReceivable: rec,
-                    openingPayable: pay,
-                  );
-                  await db.insert('persons', newP.toMap());
-                }
-
-                Navigator.pop(ctx);
-                _loadPersonsAndBalances();
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _filterPersons(String query) {
+    setState(() {
+      _searchQuery = query;
+      _filteredPersons = _personsWithBalances.where((p) {
+        final person = p['person'] as PersonModel;
+        return person.name.toLowerCase().contains(query.toLowerCase());
+      }).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredPersons = _persons.where((p) {
-      if (_searchQuery.isEmpty) return true;
-      return p.name.toLowerCase().contains(_searchQuery.trim().toLowerCase());
-    }).toList();
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('دليل العملاء والموردين'),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: const InputDecoration(
-                    hintText: 'ابحث باسم الطرف...',
-                    prefixIcon: Icon(Icons.search, color: AppColors.primary),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: const Text('دليل العملاء والموردين'),
+        backgroundColor: const Color(0xFF1E3A8A),
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        children: [
+          // شريط البحث
+          Container(
+            color: const Color(0xFF1E3A8A),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: TextField(
+              onChanged: _filterPersons,
+              decoration: InputDecoration(
+                hintText: 'ابحث باسم الطرف...',
+                fillColor: Colors.white,
+                filled: true,
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          onPressed: () => openPersonDialog(),
-          icon: const Icon(Icons.person_add),
-          label: const Text('إضافة طرف'),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : filteredPersons.isEmpty
-                ? const Center(
-                    child: Text(
-                      'لا يوجد أطراف مطابقة للبحث',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: filteredPersons.length,
-                    itemBuilder: (ctx, i) {
-                      final p = filteredPersons[i];
-                      final balance = _balances[p.id] ?? 0.0;
-                      final isReceivable = balance >= 0;
+          
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredPersons.isEmpty
+                    ? const Center(child: Text('لا يوجد أطراف مسجلة', style: TextStyle(fontSize: 16)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _filteredPersons.length,
+                        itemBuilder: (context, index) {
+                          final data = _filteredPersons[index];
+                          final PersonModel person = data['person'];
+                          final double balance = data['actual_balance'];
 
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: isReceivable ? AppColors.receivableGreen.withOpacity(0.5) : AppColors.payableRed.withOpacity(0.5)),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StatementScreen(initialPerson: p),
+                          // تحديد حالة الرصيد ولون الكارت
+                          bool isOwedToYou = balance > 0;
+                          bool isOwedByYou = balance < 0;
+                          
+                          Color statusColor = Colors.grey;
+                          String statusText = 'رصيد مصفر';
+                          
+                          if (isOwedToYou) {
+                            statusColor = const Color(0xFF10B981); // أخضر
+                            statusText = 'مستحق لك عنده';
+                          } else if (isOwedByYou) {
+                            statusColor = const Color(0xFFEF4444); // أحمر
+                            statusText = 'مطلوب له عندك';
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: statusColor.withOpacity(0.3), width: 1),
+                            ),
+                            elevation: 0,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              leading: CircleAvatar(
+                                backgroundColor: statusColor.withOpacity(0.1),
+                                child: Text(
+                                  person.name.substring(0, 1),
+                                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 26,
-                                  backgroundColor: isReceivable ? AppColors.receivableGreen.withOpacity(0.1) : AppColors.payableRed.withOpacity(0.1),
-                                  child: Text(
-                                    p.name.substring(0, 1),
-                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        p.name,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      ),
-                                      if (p.phone.isNotEmpty)
-                                        Text(p.phone, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                              title: Text(
+                                person.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      isReceivable ? 'مستحق لك عنده' : 'مطلوب له عندك',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      statusText,
+                                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
                                     ),
                                     Text(
-                                      AppFormatters.formatCurrency(balance.abs()),
+                                      '${balance.abs().toStringAsFixed(2)} ج.م',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                        color: statusColor,
                                         fontSize: 16,
-                                        color: isReceivable ? AppColors.receivableGreen : AppColors.payableRed,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ],
                                 ),
-                                PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
-                                  onSelected: (val) async {
-                                    if (val == 'edit') {
-                                      openPersonDialog(existing: p);
-                                    } else if (val == 'delete') {
-                                      final isAuthorized = await SettingsScreen.verifyPassword(context);
-                                      if (!isAuthorized) return;
-
-                                      final db = await DatabaseHelper.instance.database;
-                                      await db.delete('persons', where: 'id = ?', whereArgs: [p.id]);
-                                      _loadPersonsAndBalances();
-                                    }
-                                  },
-                                  itemBuilder: (ctx) => [
-                                    const PopupMenuItem(value: 'edit', child: Text('تعديل البيانات')),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('حذف الطرف', style: TextStyle(color: AppColors.payableRed)),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                onPressed: () {
+                                  // خيارات إضافية للطرف
+                                },
+                              ),
+                              onTap: () {
+                                // فتح كشف الحساب
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => StatementScreen(person: person),
+                                  ),
+                                ).then((_) => _loadPersonsAndCalculateBalances()); // تحديث الرصيد عند العودة
+                              },
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // دالة إضافة طرف جديد
+        },
+        backgroundColor: const Color(0xFF1E3A8A),
+        icon: const Icon(Icons.person_add, color: Colors.white),
+        label: const Text('إضافة طرف', style: TextStyle(color: Colors.white)),
       ),
     );
   }
 }
+
