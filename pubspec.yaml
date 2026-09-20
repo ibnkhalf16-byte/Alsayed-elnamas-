@@ -56,4 +56,5 @@ flutter:
 
   assets:
     - assets/images/logo2.png
-
+    - assets/fonts/NotoNaskhArabic-Regular.ttf
+    - assets/fonts/NotoNaskhArabic-Bold.ttf
