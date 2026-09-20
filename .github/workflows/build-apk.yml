@@ -1,5 +1,4 @@
-
-name: Build Android APK
+٩name: Build Android APK
 
 on:
   push:
@@ -11,15 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ==========================================
+      # 1. تحميل المشروع
+      # ==========================================
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ==========================================
+      # 2. إعداد Java
+      # ==========================================
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
+      # ==========================================
+      # 3. إعداد Flutter
+      # ==========================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -27,29 +35,131 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # ==========================================
+      # 4. إنشاء Android تلقائياً
+      # ==========================================
       - name: Generate Android Platform
         run: |
           flutter config --no-analytics
           flutter create . --platforms=android --org com.elsayed.accounts
 
+      # ==========================================
+      # 5. إضافة صلاحية الإنترنت
+      # ==========================================
+      - name: Add Internet Permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text(encoding="utf-8")
+
+          permission = '<uses-permission android:name="android.permission.INTERNET"/>'
+
+          if permission not in text:
+              text = text.replace(
+                  '<manifest',
+                  '<manifest\n    ' + permission,
+                  1
+              )
+
+          path.write_text(text, encoding="utf-8")
+
+          print("Internet permission added successfully.")
+          PY
+
+      # ==========================================
+      # 6. تغيير اسم التطبيق
+      # ==========================================
+      - name: Set Android App Name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text(encoding="utf-8")
+
+          app_name = "حسابات علاء أبو شادي"
+
+          if 'android:label=' in text:
+              text = re.sub(
+                  r'android:label="[^"]*"',
+                  f'android:label="{app_name}"',
+                  text,
+                  count=1
+              )
+          else:
+              text = text.replace(
+                  '<application',
+                  f'<application android:label="{app_name}"',
+                  1
+              )
+
+          path.write_text(text, encoding="utf-8")
+
+          print(f"Application name set to: {app_name}")
+          PY
+
+      # ==========================================
+      # 7. التأكد من وجود اللوجو
+      # ==========================================
+      - name: Verify Logo
+        run: |
+          echo "===== Checking Logo ====="
+
+          if [ -f "assets/images/logo2.png" ]; then
+            echo "Logo found:"
+            ls -lh assets/images/logo2.png
+          else
+            echo "ERROR: assets/images/logo2.png was not found!"
+            exit 1
+          fi
+
+      # ==========================================
+      # 8. تثبيت Dependencies
+      # ==========================================
       - name: Install Dependencies
         run: flutter pub get
 
+      # ==========================================
+      # 9. التأكد من app_links 6.2.1
+      # ==========================================
       - name: Verify app_links Version
         run: |
+          echo "===== Flutter Version ====="
+          flutter --version
+
           echo "===== Resolved app_links ====="
           grep -A 12 -B 3 "app_links:" pubspec.lock || true
 
+      # ==========================================
+      # 10. إنشاء أيقونة التطبيق من logo2.png
+      # ==========================================
+      - name: Generate App Icons
+        run: |
+          dart run flutter_launcher_icons
+
+      # ==========================================
+      # 11. فحص المشروع
+      # ==========================================
       - name: Analyze Project Code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      # ==========================================
+      # 12. بناء APK Release
+      # ==========================================
       - name: Build APK Release
-        run: flutter build apk --release --no-tree-shake-icons
+        run: |
+          flutter build apk --release --no-tree-shake-icons
 
+      # ==========================================
+      # 13. رفع APK
+      # ==========================================
       - name: Upload APK Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Alaa-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
-
