@@ -1,6 +1,7 @@
 name: alaa_accounts
 description: "حسابات علاء ابو شادي - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -9,18 +10,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   flutter_localizations:
     sdk: flutter
-  
-  supabase_flutter: ^2.4.0 
-  
+
+  # Supabase
+  supabase_flutter: ^2.4.0
+
+  # Network / Connectivity
   connectivity_plus: ^5.0.2
+
+  # Utilities
   uuid: ^4.3.3
-  intl: any
+  intl: ^0.19.0
   crypto: ^3.0.3
+
+  # PDF
   pdf: ^3.10.8
-  # تم تخفيض الإصدار هنا لحل التعارض
-  printing: ^5.13.1 
+  printing: ^5.13.1
 
 dependency_overrides:
   app_links: 6.1.1
@@ -28,22 +35,26 @@ dependency_overrides:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   android: "ic_launcher"
   image_path: "assets/images/logo.png"
   min_sdk_android: 21
+
   windows:
     generate: true
     image_path: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/images/logo.png
+
   fonts:
-    - family: NotoNaskhArabic
+    - family: NotoSansArabic
       fonts:
         - asset: assets/fonts/NotoSansArabic-Regular.ttf
         - asset: assets/fonts/NotoSansArabic-Bold.ttf
