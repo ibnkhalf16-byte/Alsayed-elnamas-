@@ -40,7 +40,9 @@ jobs:
           echo -e "\nsubprojects {\n    project.plugins.withId(\"com.android.library\") {\n        project.android {\n            compileSdkVersion 34\n        }\n    }\n}" >> android/build.gradle
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+         flutter clean
+         flutter pub get
 
       - name: Analyze Project
         run: flutter analyze || true
