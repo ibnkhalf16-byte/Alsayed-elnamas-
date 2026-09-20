@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/pdf/pdf_generator.dart';
 import '../../core/constants/app_colors.dart';
@@ -30,39 +30,57 @@ class _StatementScreenState extends State<StatementScreen> {
   }
 
   Future<void> _loadPersons() async {
-    final db = await DatabaseHelper.instance.database;
-    final maps = await db.query('persons', orderBy: 'name ASC');
-    final pList = maps.map((m) => PersonModel.fromMap(m)).toList();
+    try {
+      final supabase = Supabase.instance.client;
+      final maps = await supabase.from('persons').select().order('name', ascending: true);
+      final pList = maps.map((m) => PersonModel.fromMap(m)).toList();
 
-    setState(() {
-      _persons = pList;
-      _isLoading = false;
-      if (widget.initialPerson != null) {
-        _selectedPerson = _persons.firstWhere(
-          (p) => p.id == widget.initialPerson!.id,
-          orElse: () => widget.initialPerson!,
-        );
-        _fetchStatement(_selectedPerson!);
+      if (mounted) {
+        setState(() {
+          _persons = pList;
+          _isLoading = false;
+          if (widget.initialPerson != null) {
+            _selectedPerson = _persons.firstWhere(
+              (p) => p.id == widget.initialPerson!.id,
+              orElse: () => widget.initialPerson!,
+            );
+            _fetchStatement(_selectedPerson!);
+          }
+        });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب الأطراف: $e')));
+      }
+    }
   }
 
   Future<void> _fetchStatement(PersonModel person) async {
     setState(() => _isLoading = true);
-    final db = await DatabaseHelper.instance.database;
-    final tMaps = await db.query('trips');
-    final pMaps = await db.query('payments');
+    try {
+      final supabase = Supabase.instance.client;
+      final tMaps = await supabase.from('trips').select();
+      final pMaps = await supabase.from('payments').select();
 
-    final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
-    final payments = pMaps.map((m) => PaymentModel.fromMap(m)).toList();
+      final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
+      final payments = pMaps.map((m) => PaymentModel.fromMap(m)).toList();
 
-    final statementEvents = AccountingEngine.calculateStatement(person, trips, payments);
+      final statementEvents = AccountingEngine.calculateStatement(person, trips, payments);
 
-    setState(() {
-      _selectedPerson = person;
-      _events = statementEvents;
-      _isLoading = false;
-    });
+      if (mounted) {
+        setState(() {
+          _selectedPerson = person;
+          _events = statementEvents;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب الحركات: $e')));
+      }
+    }
   }
 
   @override
