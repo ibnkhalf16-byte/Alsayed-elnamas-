@@ -34,6 +34,7 @@ jobs:
             --project-name alaa_accounts \
             --platforms=android \
             --org com.elsayed.accounts
+          rm -rf test
 
       - name: Install Dependencies
         run: flutter pub get
@@ -53,3 +54,4 @@ jobs:
         with:
           name: alaa-abushady-Android-APK
           path: build/app/outputs/flutter-apk/*.apk
+
