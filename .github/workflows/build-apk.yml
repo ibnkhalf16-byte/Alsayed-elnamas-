@@ -27,77 +27,30 @@ jobs:
           cache: true
 
       - name: Configure Flutter
-        run: |
-          flutter config --no-analytics
-          flutter --version
+        run: flutter config --no-analytics
 
       - name: Install Android SDK 34
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
 
-      - name: Recreate Android Platform
+      - name: Check Android Configuration
         run: |
-          rm -rf android
-          flutter create . \
-            --project-name alaa_accounts \
-            --platforms=android \
-            --org com.alaa.accounts
-
-      - name: Configure Android SDK
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("android/app/build.gradle")
-          text = path.read_text()
-
-          text = text.replace(
-              "compileSdk = flutter.compileSdkVersion",
-              "compileSdk = 34"
-          )
-
-          text = text.replace(
-              "compileSdkVersion flutter.compileSdkVersion",
-              "compileSdkVersion 34"
-          )
-
-          text = text.replace(
-              "targetSdk = flutter.targetSdkVersion",
-              "targetSdk = 34"
-          )
-
-          text = text.replace(
-              "targetSdkVersion flutter.targetSdkVersion",
-              "targetSdkVersion 34"
-          )
-
-          path.write_text(text)
-          PY
-
-          echo "===== Android SDK configuration ====="
-          grep -nE "compileSdk|targetSdk|minSdk" android/app/build.gradle || true
-
-      - name: Verify Android SDK
-        run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed | grep -E "platforms;android-34|build-tools;34" || true
+          echo "===== app/build.gradle ====="
+          cat android/app/build.gradle
 
       - name: Install Dependencies
         run: |
           flutter clean
           flutter pub get
 
-      - name: Analyze Project
-        run: |
-          flutter analyze || true
-
       - name: Generate App Icon
-        run: |
-          dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons
 
       - name: Build APK Release
-        run: |
-          flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         if: always()
