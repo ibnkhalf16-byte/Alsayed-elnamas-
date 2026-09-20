@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/app_formatters.dart';
 import '../../models/payment_model.dart';
@@ -30,14 +30,19 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final db = await DatabaseHelper.instance.database;
-    final pMaps = await db.query('persons', orderBy: 'name ASC');
-    final payMaps = await db.rawQuery('''
-      SELECT py.*, p.name as person_name 
-      FROM payments py 
-      JOIN persons p ON py.person_id = p.id 
-      ORDER BY py.date DESC, py.created_at DESC
-    ''');
+    final supabase = Supabase.instance.client;
+    
+    // جلب الأطراف والسندات من السحابة
+    final pMaps = await supabase.from('persons').select().order('name', ascending: true);
+    final rawPays = await supabase.from('payments').select().order('date', ascending: false).order('created_at', ascending: false);
+
+    // دمج اسم الطرف محلياً بدلاً من استعلام SQL Raw
+    final personNames = {for (var p in pMaps) p['id']: p['name']};
+    final payMaps = rawPays.map((p) {
+      final mutablePay = Map<String, dynamic>.from(p);
+      mutablePay['person_name'] = personNames[p['person_id']] ?? 'غير معروف';
+      return mutablePay;
+    }).toList();
 
     if (mounted) {
       setState(() {
@@ -157,7 +162,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 onPressed: () async {
                   if (!formKey.currentState!.validate() || selectedPerson == null) return;
                   final amt = double.parse(amtCtrl.text.trim());
-                  final db = await DatabaseHelper.instance.database;
+                  final supabase = Supabase.instance.client;
 
                   if (isEdit) {
                     final isAuthorized = await SettingsScreen.verifyPassword(context);
@@ -172,7 +177,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                       amount: amt,
                       description: descCtrl.text.trim(),
                     );
-                    await db.update('payments', updated.toMap(), where: 'id = ?', whereArgs: [existing.id]);
+                    await supabase.from('payments').update(updated.toMap()).eq('id', existing.id);
                   } else {
                     final newPay = PaymentModel(
                       id: const Uuid().v4(),
@@ -183,7 +188,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                       amount: amt,
                       description: descCtrl.text.trim(),
                     );
-                    await db.insert('payments', newPay.toMap());
+                    await supabase.from('payments').insert(newPay.toMap());
                   }
 
                   Navigator.pop(ctx);
@@ -200,13 +205,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // تصفية القائمة بناءً على المعامل المرر إذا كان موجوداً
     final filteredPayments = _payments.where((p) {
       if (widget.initialDirection != null && p.direction != widget.initialDirection) return false;
       return true;
     }).toList();
 
-    // تخصيص عنوان الشاشة
     String appBarTitle = 'سندات السداد والتحصيل';
     if (widget.initialDirection == 'from_customer') appBarTitle = 'سندات التحصيل النقدية';
     if (widget.initialDirection == 'to_supplier') appBarTitle = 'سندات سداد الدفعات';
@@ -267,8 +270,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                   final isAuthorized = await SettingsScreen.verifyPassword(context);
                                   if (!isAuthorized) return;
 
-                                  final db = await DatabaseHelper.instance.database;
-                                  await db.delete('payments', where: 'id = ?', whereArgs: [p.id]);
+                                  final supabase = Supabase.instance.client;
+                                  await supabase.from('payments').delete().eq('id', p.id);
                                   _loadData();
                                 },
                               ),
