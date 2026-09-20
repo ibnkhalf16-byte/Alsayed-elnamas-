@@ -10,7 +10,7 @@ void main() async {
   // تهيئة الاتصال بقاعدة بيانات Supabase بدلاً من SQLite
   await Supabase.initialize(
     url: 'https://eeqgzwsyzoitpjrlgohx.supabase.co',
-    anonKey: 'Sb_publishable_y5EyMhMxk4XlXtZKmcikaA_nR7be8Xv', // تم التصحيح من publishableKey إلى anonKey
+    anonKey: 'sb_publishable_y5EyMhMxk4XlXtZKmcikaA_nR7be8Xv', // تم التصحيح من publishableKey إلى anonKey
   );
 
   runApp(const ElsayedAccountsApp());
