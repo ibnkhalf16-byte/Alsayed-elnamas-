@@ -54,13 +54,14 @@ class PdfGenerator {
         '${now.minute.toString().padLeft(2, '0')}';
 
     // ============================================================
-    // إنشاء الصفحة
+    // إنشاء صفحة PDF
     // ============================================================
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
 
+        // اتجاه المستند عربي
         textDirection: pw.TextDirection.rtl,
 
         margin: const pw.EdgeInsets.only(
@@ -83,8 +84,10 @@ class PdfGenerator {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-
+              // --------------------------------------------------
               // اسم البرنامج
+              // --------------------------------------------------
+
               pw.Center(
                 child: pw.Text(
                   'حسابات السيد النماس',
@@ -100,7 +103,10 @@ class PdfGenerator {
 
               pw.SizedBox(height: 5),
 
+              // --------------------------------------------------
               // اسم الشخص
+              // --------------------------------------------------
+
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
@@ -121,13 +127,12 @@ class PdfGenerator {
         },
 
         // ========================================================
-        // أسفل الصفحة
+        // تذييل الصفحة
         // ========================================================
 
         footer: (pw.Context context) {
           return pw.Column(
             children: [
-
               pw.SizedBox(height: 8),
 
               pw.Divider(
@@ -137,28 +142,72 @@ class PdfGenerator {
 
               pw.SizedBox(height: 3),
 
-              pw.Row(
-                mainAxisAlignment:
-                    pw.MainAxisAlignment.spaceBetween,
-                children: [
+              // ==================================================
+              // التذييل مقسم إلى 3 أجزاء
+              //
+              // اليمين  = تاريخ الطباعة
+              // المنتصف = تم تصميم البرنامج بواسطة علي خلف
+              // اليسار = رقم الصفحة
+              // ==================================================
 
-                  pw.Text(
-                    'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: fontRegular,
-                      fontSize: 8,
-                      color: PdfColors.grey700,
+              pw.Row(
+                textDirection: pw.TextDirection.rtl,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  // ==============================================
+                  // يمين التذييل
+                  // ==============================================
+
+                  pw.Expanded(
+                    child: pw.Align(
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text(
+                        'تاريخ الطباعة: $currentDateStr',
+                        textDirection: pw.TextDirection.rtl,
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                     ),
                   ),
 
-                  pw.Text(
-                    'تاريخ الطباعة: $currentDateStr',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: fontRegular,
-                      fontSize: 8,
-                      color: PdfColors.grey700,
+                  // ==============================================
+                  // منتصف التذييل
+                  // ==============================================
+
+                  pw.Expanded(
+                    child: pw.Center(
+                      child: pw.Text(
+                        'تم تصميم البرنامج بواسطة علي خلف',
+                        textDirection: pw.TextDirection.rtl,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ==============================================
+                  // يسار التذييل
+                  // ==============================================
+
+                  pw.Expanded(
+                    child: pw.Align(
+                      alignment: pw.Alignment.centerLeft,
+                      child: pw.Text(
+                        'صفحة ${context.pageNumber} من ${context.pagesCount}',
+                        textDirection: pw.TextDirection.rtl,
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -172,14 +221,16 @@ class PdfGenerator {
         // ========================================================
 
         build: (pw.Context context) => [
-
           // ======================================================
-          // الجدول
+          // جدول كشف الحساب
           // ======================================================
 
           pw.TableHelper.fromTextArray(
-
             context: context,
+
+            // ----------------------------------------------------
+            // حدود الجدول
+            // ----------------------------------------------------
 
             border: pw.TableBorder.all(
               color: PdfColors.grey500,
@@ -187,13 +238,13 @@ class PdfGenerator {
             ),
 
             // ----------------------------------------------------
-            // اتجاه النص
+            // اتجاه النص داخل الخلايا
             // ----------------------------------------------------
 
             cellDirection: pw.TextDirection.rtl,
 
             // ----------------------------------------------------
-            // الهيدر
+            // تنسيق رأس الجدول
             // ----------------------------------------------------
 
             headerStyle: pw.TextStyle(
@@ -212,7 +263,7 @@ class PdfGenerator {
             headerHeight: 25,
 
             // ----------------------------------------------------
-            // الخلايا
+            // تنسيق الخلايا
             // ----------------------------------------------------
 
             cellStyle: pw.TextStyle(
@@ -225,70 +276,67 @@ class PdfGenerator {
             cellAlignment: pw.Alignment.center,
 
             // ====================================================
-            // مهم جداً:
+            // ترتيب الأعمدة
             //
-            // ترتيب الأعمدة هنا هو الترتيب المرئي من اليمين
-            // إلى اليسار.
+            // الترتيب المرئي النهائي من اليمين إلى اليسار:
             //
-            // التاريخ سيكون أقصى اليمين.
-            // الرصيد سيكون أقصى اليسار.
+            // التاريخ
+            // الحركة
+            // البيان
+            // التحميل
+            // السائق
+            // طن
+            // سعر الطن
+            // مدين
+            // دائن
+            // الرصيد
+            //
+            // التاريخ = أقصى اليمين
+            // الرصيد   = أقصى اليسار
             // ====================================================
 
             columnWidths: const {
-
-              // التاريخ - أقصى اليمين
-              0: pw.FlexColumnWidth(2.1),
-
-              // الحركة
-              1: pw.FlexColumnWidth(1.4),
-
-              // البيان
-              2: pw.FlexColumnWidth(2.6),
-
-              // التحميل
-              3: pw.FlexColumnWidth(1.8),
-
-              // السائق
-              4: pw.FlexColumnWidth(2.1),
-
-              // طن
-              5: pw.FlexColumnWidth(1.2),
-
-              // سعر الطن
-              6: pw.FlexColumnWidth(1.7),
-
-              // مدين
-              7: pw.FlexColumnWidth(2.0),
-
-              // دائن
-              8: pw.FlexColumnWidth(2.0),
-
-              // الرصيد - أقصى اليسار
-              9: pw.FlexColumnWidth(2.3),
+              // أقصى اليسار
+              0: pw.FlexColumnWidth(2.3), // الرصيد
+              1: pw.FlexColumnWidth(2.0), // دائن
+              2: pw.FlexColumnWidth(2.0), // مدين
+              3: pw.FlexColumnWidth(1.7), // سعر الطن
+              4: pw.FlexColumnWidth(1.2), // طن
+              5: pw.FlexColumnWidth(2.1), // السائق
+              6: pw.FlexColumnWidth(1.8), // التحميل
+              7: pw.FlexColumnWidth(2.6), // البيان
+              8: pw.FlexColumnWidth(1.4), // الحركة
+              9: pw.FlexColumnWidth(2.1), // التاريخ
             },
 
             // ====================================================
-            // العناوين
+            // عناوين الأعمدة
+            //
+            // القائمة معكوسة عمدًا لكي يظهر الجدول بصريًا
+            // من اليمين إلى اليسار بالترتيب المطلوب.
             // ====================================================
 
             headers: <String>[
-              'التاريخ',
-              'الحركة',
-              'البيان',
-              'التحميل',
-              'السائق',
-              'طن',
-              'سعر الطن',
-              'مدين',
-              'دائن',
               'الرصيد',
+              'دائن',
+              'مدين',
+              'سعر الطن',
+              'طن',
+              'السائق',
+              'التحميل',
+              'البيان',
+              'الحركة',
+              'التاريخ',
             ],
 
             // ====================================================
-            // البيانات
+            // بيانات الجدول
             // ====================================================
 
             data: events.map((ev) {
+              // --------------------------------------------------
+              // القيم الرقمية
+              // --------------------------------------------------
 
               final double debit =
                   (ev['debit'] as num?)?.toDouble() ?? 0.0;
@@ -304,6 +352,10 @@ class PdfGenerator {
 
               final double price =
                   (ev['price'] as num?)?.toDouble() ?? 0.0;
+
+              // --------------------------------------------------
+              // القيم النصية
+              // --------------------------------------------------
 
               final String vehicle =
                   (ev['vehicle'] ?? '').toString();
@@ -321,65 +373,47 @@ class PdfGenerator {
                   ev['date']?.toString() ?? '';
 
               // ==================================================
-              // مهم:
-              //
-              // لا نعكس البيانات هنا.
-              //
-              // نفس ترتيب headers:
-              //
-              // التاريخ
-              // الحركة
-              // البيان
-              // التحميل
-              // السائق
-              // طن
-              // سعر الطن
-              // مدين
-              // دائن
-              // الرصيد
-              //
-              // وبسبب RTL سيكون التاريخ يميناً.
+              // ترتيب البيانات مطابق لترتيب headers
               // ==================================================
 
               return [
+                // 1 - الرصيد
+                balance.toStringAsFixed(2),
 
-                // 1 - التاريخ
-                date,
-
-                // 2 - الحركة
-                actionType,
-
-                // 3 - البيان
-                itemOrDesc,
-
-                // 4 - التحميل
-                vehicle,
-
-                // 5 - السائق
-                driver,
-
-                // 6 - طن
-                weight > 0
-                    ? weight.toStringAsFixed(2)
-                    : '',
-
-                // 7 - سعر الطن
-                price > 0
-                    ? price.toStringAsFixed(2)
-                    : '',
-
-                // 8 - مدين
-                debit > 0
-                    ? debit.toStringAsFixed(2)
-                    : '0.00',
-
-                // 9 - دائن
+                // 2 - الدائن
                 credit > 0
                     ? credit.toStringAsFixed(2)
                     : '0.00',
 
-                // 10 - الرصيد
-                balance.toStringAsFixed(2),
+                // 3 - المدين
+                debit > 0
+                    ? debit.toStringAsFixed(2)
+                    : '0.00',
+
+                // 4 - سعر الطن
+                price > 0
+                    ? price.toStringAsFixed(2)
+                    : '',
+
+                // 5 - طن
+                weight > 0
+                    ? weight.toStringAsFixed(2)
+                    : '',
+
+                // 6 - السائق
+                driver,
+
+                // 7 - التحميل
+                vehicle,
+
+                // 8 - البيان
+                itemOrDesc,
+
+                // 9 - الحركة
+                actionType,
+
+                // 10 - التاريخ
+                date,
               ];
             }).toList(),
           ),
@@ -391,9 +425,9 @@ class PdfGenerator {
           // ======================================================
 
           pw.Row(
+            textDirection: pw.TextDirection.rtl,
             mainAxisAlignment: pw.MainAxisAlignment.start,
             children: [
-
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(
                   horizontal: 12,
@@ -434,7 +468,7 @@ class PdfGenerator {
     );
 
     // ============================================================
-    // فتح شاشة الطباعة
+    // فتح شاشة الطباعة / المعاينة
     // ============================================================
 
     await Printing.layoutPdf(
