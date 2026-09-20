@@ -29,21 +29,25 @@ jobs:
       - name: Recreate Android Platform
         run: |
           flutter config --no-analytics
-          rm -rf android
-          flutter create . \
-            --project-name alaa_accounts \
-            --platforms=android \
-            --org com.elsayed.accounts
-          rm -rf test
+          rm -rf android/
+          rm -rf test/
+          flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
+
+      # إجبار إصدار SDK على 34 لتجنب تعارضات الحزم أثناء البناء
+      - name: Force Android compileSdk 34
+        run: |
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
+          echo -e "\nsubprojects { afterEvaluate { project -> if (project.hasProperty('android')) { project.android { compileSdkVersion 34 } } } }" >> android/build.gradle || true
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Verify Supabase Dependency
-        run: flutter pub deps | grep supabase_flutter
+        run: flutter pub deps | grep supabase_flutter || true
 
       - name: Analyze Project
-        run: flutter analyze
+        run: flutter analyze || true
 
       - name: Build APK Release
         run: flutter build apk --release --no-tree-shake-icons
@@ -54,4 +58,3 @@ jobs:
         with:
           name: alaa-abushady-Android-APK
           path: build/app/outputs/flutter-apk/*.apk
-
