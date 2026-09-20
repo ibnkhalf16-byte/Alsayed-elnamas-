@@ -35,6 +35,17 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Diagnose app_links Dependency
+        run: |
+          echo "===== Flutter Version ====="
+          flutter --version
+
+          echo "===== app_links dependency ====="
+          flutter pub deps --style=compact | grep -A 5 -B 5 "app_links" || true
+
+          echo "===== Resolved app_links ====="
+          grep -A 10 -B 2 "app_links:" pubspec.lock || true
+
       - name: Analyze Project Code
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
