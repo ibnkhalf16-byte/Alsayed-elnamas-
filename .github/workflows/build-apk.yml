@@ -33,15 +33,15 @@ jobs:
           rm -rf test/
           flutter create . --project-name elsayed_accounts --platforms=android --org com.elsayed.accounts
 
-      - name: Force Android compileSdk 34
+      - name: Force Android compileSdk 34 for App & Plugins
         run: |
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
+          echo -e "\nsubprojects {\n    project.plugins.withId(\"com.android.library\") {\n        project.android {\n            compileSdkVersion 34\n        }\n    }\n}" >> android/build.gradle
 
       - name: Install Dependencies
         run: flutter pub get
 
-      # إضافة || true لتخطي الملاحظات (info) وعدم إيقاف البناء
       - name: Analyze Project
         run: flutter analyze || true
 
