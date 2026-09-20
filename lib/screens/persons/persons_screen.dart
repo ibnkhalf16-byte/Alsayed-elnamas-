@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart'; // تأكد من استيراد هذه الحزمة
 
 import '../../core/database/database_helper.dart';
 import '../../core/accounting/accounting_engine.dart';
@@ -19,13 +20,11 @@ class _PersonsScreenState extends State<PersonsScreen> {
   List<Map<String, dynamic>> _filteredPersons = [];
 
   bool _isLoading = true;
-
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-
     _loadPersonsAndCalculateBalances();
   }
 
@@ -40,64 +39,30 @@ class _PersonsScreenState extends State<PersonsScreen> {
 
     final db = await DatabaseHelper.instance.database;
 
-    // ============================================================
-    // جلب البيانات
-    // ============================================================
-
     final personsData = await db.query('persons');
-
     final tripsData = await db.query('trips');
-
     final paymentsData = await db.query('payments');
 
-    // ============================================================
-    // تحويل البيانات إلى Models
-    // ============================================================
-
     final List<PersonModel> persons = personsData
-        .map(
-          (e) => PersonModel.fromMap(e),
-        )
+        .map((e) => PersonModel.fromMap(e))
         .toList();
 
     final List<TripModel> allTrips = tripsData
-        .map(
-          (e) => TripModel.fromMap(e),
-        )
+        .map((e) => TripModel.fromMap(e))
         .toList();
 
     final List<PaymentModel> allPayments = paymentsData
-        .map(
-          (e) => PaymentModel.fromMap(e),
-        )
+        .map((e) => PaymentModel.fromMap(e))
         .toList();
-
-    // ============================================================
-    // حساب الأرصدة
-    // ============================================================
 
     final List<Map<String, dynamic>> computedList = [];
 
     for (final person in persons) {
-      // ----------------------------------------------------------
-      // حساب كشف الحساب الفعلي
-      // ----------------------------------------------------------
-
       final statement = AccountingEngine.calculateStatement(
         person,
         allTrips,
         allPayments,
       );
-
-      // ----------------------------------------------------------
-      // تحديد الرصيد الحالي
-      //
-      // إذا توجد حركات:
-      // نأخذ آخر رصيد من كشف الحساب.
-      //
-      // إذا لا توجد حركات:
-      // نستخدم رصيد أول المدة.
-      // ----------------------------------------------------------
 
       double actualBalance = 0.0;
 
@@ -105,9 +70,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
         actualBalance =
             (statement.last['balance'] as num?)?.toDouble() ?? 0.0;
       } else {
-        actualBalance =
-            person.openingReceivable -
-            person.openingPayable;
+        actualBalance = person.openingReceivable - person.openingPayable;
       }
 
       computedList.add({
@@ -116,17 +79,16 @@ class _PersonsScreenState extends State<PersonsScreen> {
       });
     }
 
-    // ============================================================
-    // تحديث الشاشة
-    // ============================================================
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _personsWithBalances = computedList;
-      _filteredPersons = computedList;
+      // إعادة تطبيق البحث الحالي إذا كان موجوداً
+      if (_searchQuery.isNotEmpty) {
+        _filterPersons(_searchQuery);
+      } else {
+        _filteredPersons = computedList;
+      }
       _isLoading = false;
     });
   }
@@ -138,18 +100,167 @@ class _PersonsScreenState extends State<PersonsScreen> {
   void _filterPersons(String query) {
     setState(() {
       _searchQuery = query;
-
-      _filteredPersons =
-          _personsWithBalances.where((p) {
+      _filteredPersons = _personsWithBalances.where((p) {
         final person = p['person'] as PersonModel;
-
-        return person.name
-            .toLowerCase()
-            .contains(
-              query.toLowerCase(),
-            );
+        return person.name.toLowerCase().contains(query.toLowerCase());
       }).toList();
     });
+  }
+
+  // ============================================================
+  // نافذة إضافة / تعديل طرف
+  // ============================================================
+
+  void openPersonDialog({PersonModel? existing}) {
+    final isEdit = existing != null;
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final phoneCtrl = TextEditingController(text: existing?.phone ?? '');
+    final addressCtrl = TextEditingController(text: existing?.address ?? '');
+    final recCtrl = TextEditingController(
+        text: existing != null ? existing.openingReceivable.toString() : '0');
+    final payCtrl = TextEditingController(
+        text: existing != null ? existing.openingPayable.toString() : '0');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+              isEdit ? 'تعديل بيانات طرف' : 'إضافة طرف جديد (عميل / مورد)'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'الاسم بالكامل'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: phoneCtrl,
+                    decoration: const InputDecoration(labelText: 'رقم الهاتف'),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: addressCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'العنوان أو المركز'),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('رصيد أول المدة',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: recCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'لك عنده (المبلغ الذي يدين لك به)',
+                      labelStyle: TextStyle(
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.bold),
+                      prefixIcon:
+                          Icon(Icons.arrow_downward, color: Color(0xFF10B981)),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                      final val = double.tryParse(v ?? '0');
+                      if (val != null && val < 0) {
+                        return 'لا يمكن إدخال قيمة سالبة';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: payCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'له عندك (المبلغ الذي تدين له به)',
+                      labelStyle: TextStyle(
+                          color: Color(0xFFEF4444),
+                          fontWeight: FontWeight.bold),
+                      prefixIcon:
+                          Icon(Icons.arrow_upward, color: Color(0xFFEF4444)),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                      final val = double.tryParse(v ?? '0');
+                      if (val != null && val < 0) {
+                        return 'لا يمكن إدخال قيمة سالبة';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final rec = double.tryParse(recCtrl.text.trim()) ?? 0.0;
+                final pay = double.tryParse(payCtrl.text.trim()) ?? 0.0;
+
+                if (rec > 0 && pay > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text(
+                            'الرجاء إدخال رصيد في جهة واحدة فقط (إما لك عنده أو له عندك)')),
+                  );
+                  return;
+                }
+
+                final db = await DatabaseHelper.instance.database;
+
+                if (isEdit) {
+                  final updated = PersonModel(
+                    id: existing.id,
+                    name: nameCtrl.text.trim(),
+                    phone: phoneCtrl.text.trim(),
+                    address: addressCtrl.text.trim(),
+                    openingReceivable: rec,
+                    openingPayable: pay,
+                  );
+                  await db.update('persons', updated.toMap(),
+                      where: 'id = ?', whereArgs: [existing.id]);
+                } else {
+                  final newP = PersonModel(
+                    id: const Uuid().v4(),
+                    name: nameCtrl.text.trim(),
+                    phone: phoneCtrl.text.trim(),
+                    address: addressCtrl.text.trim(),
+                    openingReceivable: rec,
+                    openingPayable: pay,
+                  );
+                  await db.insert('persons', newP.toMap());
+                }
+
+                Navigator.pop(ctx);
+                _loadPersonsAndCalculateBalances();
+              },
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ============================================================
@@ -161,69 +272,37 @@ class _PersonsScreenState extends State<PersonsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
 
-      // ==========================================================
-      // AppBar
-      // ==========================================================
-
       appBar: AppBar(
-        title: const Text(
-          'دليل العملاء والموردين',
-        ),
+        title: const Text('دليل العملاء والموردين'),
         backgroundColor: const Color(0xFF1E3A8A),
         foregroundColor: Colors.white,
       ),
 
-      // ==========================================================
-      // Body
-      // ==========================================================
-
       body: Column(
         children: [
-          // ======================================================
           // شريط البحث
-          // ======================================================
-
           Container(
             color: const Color(0xFF1E3A8A),
-
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              16,
-            ),
-
-            child: TextField(
-              onChanged: _filterPersons,
-
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Directionality(
               textDirection: TextDirection.rtl,
-
-              decoration: InputDecoration(
-                hintText: 'ابحث باسم الطرف...',
-
-                hintTextDirection: TextDirection.rtl,
-
-                fillColor: Colors.white,
-
-                filled: true,
-
-                prefixIcon: const Icon(
-                  Icons.search,
-                ),
-
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-
-                  borderSide: BorderSide.none,
+              child: TextField(
+                onChanged: _filterPersons,
+                decoration: InputDecoration(
+                  hintText: 'ابحث باسم الطرف...',
+                  fillColor: Colors.white,
+                  filled: true,
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
           ),
 
-          // ======================================================
           // قائمة الأطراف
-          // ======================================================
-
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -232,210 +311,137 @@ class _PersonsScreenState extends State<PersonsScreen> {
                 : _filteredPersons.isEmpty
                     ? const Center(
                         child: Text(
-                          'لا يوجد أطراف مسجلة',
-                          style: TextStyle(
-                            fontSize: 16,
-                          ),
+                          'لا يوجد أطراف مسجلة أو مطابقة للبحث',
+                          style: TextStyle(fontSize: 16),
                         ),
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(12),
-
                         itemCount: _filteredPersons.length,
-
-                        itemBuilder: (
-                          context,
-                          index,
-                        ) {
-                          final data =
-                              _filteredPersons[index];
-
+                        itemBuilder: (context, index) {
+                          final data = _filteredPersons[index];
                           final PersonModel person =
                               data['person'] as PersonModel;
-
                           final double balance =
-                              (data['actual_balance'] as num)
-                                  .toDouble();
+                              (data['actual_balance'] as num).toDouble();
 
-                          // ==================================================
-                          // تحديد حالة الرصيد
-                          // ==================================================
+                          final bool isOwedToYou = balance > 0;
+                          final bool isOwedByYou = balance < 0;
 
-                          final bool isOwedToYou =
-                              balance > 0;
-
-                          final bool isOwedByYou =
-                              balance < 0;
-
-                          Color statusColor =
-                              Colors.grey;
-
-                          String statusText =
-                              'رصيد مصفر';
+                          Color statusColor = Colors.grey;
+                          String statusText = 'رصيد مصفر';
 
                           if (isOwedToYou) {
-                            statusColor =
-                                const Color(0xFF10B981);
-
-                            statusText =
-                                'مستحق لك عنده';
+                            statusColor = const Color(0xFF10B981);
+                            statusText = 'مستحق لك عنده';
                           } else if (isOwedByYou) {
-                            statusColor =
-                                const Color(0xFFEF4444);
-
-                            statusText =
-                                'مطلوب له عندك';
+                            statusColor = const Color(0xFFEF4444);
+                            statusText = 'مطلوب له عندك';
                           }
 
-                          // ==================================================
-                          // كارت الطرف
-                          // ==================================================
-
-                          return Card(
-                            margin:
-                                const EdgeInsets.only(
-                              bottom: 12,
-                            ),
-
-                            shape:
-                                RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                12,
+                          return Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                  color: statusColor.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
-
-                              side: BorderSide(
-                                color: statusColor
-                                    .withOpacity(0.3),
-
-                                width: 1,
-                              ),
-                            ),
-
-                            elevation: 0,
-
-                            child: ListTile(
-                              contentPadding:
-                                  const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-
-                              // ==================================================
-                              // صورة / حرف الطرف
-                              // ==================================================
-
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    statusColor
-                                        .withOpacity(0.1),
-
-                                child: Text(
-                                  person.name.isNotEmpty
-                                      ? person.name
-                                          .substring(
-                                          0,
-                                          1,
-                                        )
-                                      : '?',
-
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontWeight:
-                                        FontWeight.bold,
+                              elevation: 0,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      statusColor.withOpacity(0.1),
+                                  child: Text(
+                                    person.name.isNotEmpty
+                                        ? person.name.substring(0, 1)
+                                        : '?',
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-
-                              // ==================================================
-                              // اسم الطرف
-                              // ==================================================
-
-                              title: Text(
-                                person.name,
-
-                                style:
-                                    const TextStyle(
-                                  fontWeight:
-                                      FontWeight.bold,
-                                  fontSize: 16,
+                                title: Text(
+                                  person.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
-                              ),
-
-                              // ==================================================
-                              // الرصيد
-                              // ==================================================
-
-                              subtitle: Padding(
-                                padding:
-                                    const EdgeInsets.only(
-                                  top: 8,
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        statusText,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${balance.abs().toStringAsFixed(2)} ج.م',
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .start,
-
-                                  children: [
-                                    Text(
-                                      statusText,
-
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontSize: 12,
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
-                                    ),
-
-                                    Text(
-                                      '${balance.abs().toStringAsFixed(2)} ج.م',
-
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontSize: 16,
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
+                                // تفعيل خيارات التعديل والحذف
+                                trailing: PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert),
+                                  onSelected: (val) async {
+                                    if (val == 'edit') {
+                                      openPersonDialog(existing: person);
+                                    } else if (val == 'delete') {
+                                      final db = await DatabaseHelper
+                                          .instance.database;
+                                      await db.delete('persons',
+                                          where: 'id = ?',
+                                          whereArgs: [person.id]);
+                                      _loadPersonsAndCalculateBalances();
+                                    }
+                                  },
+                                  itemBuilder: (ctx) => [
+                                    const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('تعديل البيانات')),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('حذف الطرف',
+                                          style: TextStyle(
+                                              color: Color(0xFFEF4444))),
                                     ),
                                   ],
                                 ),
-                              ),
-
-                              // ==================================================
-                              // القائمة الإضافية
-                              // ==================================================
-
-                              trailing: IconButton(
-                                icon: const Icon(
-                                  Icons.more_vert,
-                                ),
-
-                                onPressed: () {
-                                  // خيارات إضافية للطرف
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => StatementScreen(
+                                        initialPerson: person,
+                                      ),
+                                    ),
+                                  ).then(
+                                    (_) =>
+                                        _loadPersonsAndCalculateBalances(),
+                                  );
                                 },
                               ),
-
-                              // ==================================================
-                              // فتح كشف الحساب
-                              // ==================================================
-
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        StatementScreen(
-                                      initialPerson:
-                                          person,
-                                    ),
-                                  ),
-                                ).then(
-                                  (_) =>
-                                      _loadPersonsAndCalculateBalances(),
-                                );
-                              },
                             ),
                           );
                         },
@@ -447,25 +453,20 @@ class _PersonsScreenState extends State<PersonsScreen> {
       // ==========================================================
       // إضافة طرف
       // ==========================================================
-
-      floatingActionButton:
-          FloatingActionButton.extended(
-        onPressed: () {
-          // دالة إضافة طرف جديد
-        },
-
-        backgroundColor:
-            const Color(0xFF1E3A8A),
-
-        icon: const Icon(
-          Icons.person_add,
-          color: Colors.white,
-        ),
-
-        label: const Text(
-          'إضافة طرف',
-          style: TextStyle(
+      floatingActionButton: Directionality(
+        textDirection: TextDirection.rtl,
+        child: FloatingActionButton.extended(
+          onPressed: () => openPersonDialog(), // تم ربط الزر بالدالة هنا
+          backgroundColor: const Color(0xFF1E3A8A),
+          icon: const Icon(
+            Icons.person_add,
             color: Colors.white,
+          ),
+          label: const Text(
+            'إضافة طرف',
+            style: TextStyle(
+              color: Colors.white,
+            ),
           ),
         ),
       ),
