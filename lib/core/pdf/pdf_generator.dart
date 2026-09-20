@@ -90,7 +90,7 @@ class PdfGenerator {
 
               pw.Center(
                 child: pw.Text(
-                  'حسابات السيد النماس',
+                  'حسابات علاء ابو شادي',
                   textDirection: pw.TextDirection.rtl,
                   style: pw.TextStyle(
                     font: fontBold,
