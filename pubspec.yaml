@@ -1,7 +1,6 @@
 name: alaa_accounts
 description: "حسابات علاء ابو شادي - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -10,51 +9,38 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   flutter_localizations:
     sdk: flutter
-
-  supabase_flutter: ^2.4.0
-
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  path: ^1.8.3
   connectivity_plus: ^5.0.2
-
   uuid: ^4.3.3
-
-  intl: ^0.19.0
-
+  intl: any
   crypto: ^3.0.3
-
   pdf: ^3.10.8
-
-  printing: ^5.13.1
-
-dependency_overrides:
-  app_links: 6.1.1
+  printing: ^5.13.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   android: "ic_launcher"
   image_path: "assets/images/logo.png"
   min_sdk_android: 21
-
   windows:
     generate: true
     image_path: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/logo.png
-
   fonts:
-    - family: NotoSansArabic
+    - family: NotoNaskhArabic
       fonts:
-        - asset: assets/fonts/NotoSansArabic-Regular.ttf
-        - asset: assets/fonts/NotoSansArabic-Bold.ttf
+        - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
+        - asset: assets/fonts/NotoNaskhArabic-Bold.ttf
           weight: 700
