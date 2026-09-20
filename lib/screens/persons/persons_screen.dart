@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart'; // تأكد من استيراد هذه الحزمة
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/database/database_helper.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../models/person_model.dart';
 import '../../models/trip_model.dart';
@@ -28,20 +28,16 @@ class _PersonsScreenState extends State<PersonsScreen> {
     _loadPersonsAndCalculateBalances();
   }
 
-  // ============================================================
-  // تحميل الأطراف وحساب الأرصدة
-  // ============================================================
-
   Future<void> _loadPersonsAndCalculateBalances() async {
     setState(() {
       _isLoading = true;
     });
 
-    final db = await DatabaseHelper.instance.database;
+    final supabase = Supabase.instance.client;
 
-    final personsData = await db.query('persons');
-    final tripsData = await db.query('trips');
-    final paymentsData = await db.query('payments');
+    final personsData = await supabase.from('persons').select();
+    final tripsData = await supabase.from('trips').select();
+    final paymentsData = await supabase.from('payments').select();
 
     final List<PersonModel> persons = personsData
         .map((e) => PersonModel.fromMap(e))
@@ -83,7 +79,6 @@ class _PersonsScreenState extends State<PersonsScreen> {
 
     setState(() {
       _personsWithBalances = computedList;
-      // إعادة تطبيق البحث الحالي إذا كان موجوداً
       if (_searchQuery.isNotEmpty) {
         _filterPersons(_searchQuery);
       } else {
@@ -92,10 +87,6 @@ class _PersonsScreenState extends State<PersonsScreen> {
       _isLoading = false;
     });
   }
-
-  // ============================================================
-  // البحث
-  // ============================================================
 
   void _filterPersons(String query) {
     setState(() {
@@ -106,10 +97,6 @@ class _PersonsScreenState extends State<PersonsScreen> {
       }).toList();
     });
   }
-
-  // ============================================================
-  // نافذة إضافة / تعديل طرف
-  // ============================================================
 
   void openPersonDialog({PersonModel? existing}) {
     final isEdit = existing != null;
@@ -227,7 +214,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
                   return;
                 }
 
-                final db = await DatabaseHelper.instance.database;
+                final supabase = Supabase.instance.client;
 
                 if (isEdit) {
                   final updated = PersonModel(
@@ -238,8 +225,10 @@ class _PersonsScreenState extends State<PersonsScreen> {
                     openingReceivable: rec,
                     openingPayable: pay,
                   );
-                  await db.update('persons', updated.toMap(),
-                      where: 'id = ?', whereArgs: [existing.id]);
+                  await supabase
+                      .from('persons')
+                      .update(updated.toMap())
+                      .eq('id', existing.id);
                 } else {
                   final newP = PersonModel(
                     id: const Uuid().v4(),
@@ -249,7 +238,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
                     openingReceivable: rec,
                     openingPayable: pay,
                   );
-                  await db.insert('persons', newP.toMap());
+                  await supabase.from('persons').insert(newP.toMap());
                 }
 
                 Navigator.pop(ctx);
@@ -263,24 +252,17 @@ class _PersonsScreenState extends State<PersonsScreen> {
     );
   }
 
-  // ============================================================
-  // واجهة الشاشة
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-
       appBar: AppBar(
         title: const Text('دليل العملاء والموردين'),
         backgroundColor: const Color(0xFF1E3A8A),
         foregroundColor: Colors.white,
       ),
-
       body: Column(
         children: [
-          // شريط البحث
           Container(
             color: const Color(0xFF1E3A8A),
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -301,8 +283,6 @@ class _PersonsScreenState extends State<PersonsScreen> {
               ),
             ),
           ),
-
-          // قائمة الأطراف
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -401,18 +381,17 @@ class _PersonsScreenState extends State<PersonsScreen> {
                                     ],
                                   ),
                                 ),
-                                // تفعيل خيارات التعديل والحذف
                                 trailing: PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_vert),
                                   onSelected: (val) async {
                                     if (val == 'edit') {
                                       openPersonDialog(existing: person);
                                     } else if (val == 'delete') {
-                                      final db = await DatabaseHelper
-                                          .instance.database;
-                                      await db.delete('persons',
-                                          where: 'id = ?',
-                                          whereArgs: [person.id]);
+                                      final supabase = Supabase.instance.client;
+                                      await supabase
+                                          .from('persons')
+                                          .delete()
+                                          .eq('id', person.id);
                                       _loadPersonsAndCalculateBalances();
                                     }
                                   },
@@ -449,14 +428,10 @@ class _PersonsScreenState extends State<PersonsScreen> {
           ),
         ],
       ),
-
-      // ==========================================================
-      // إضافة طرف
-      // ==========================================================
       floatingActionButton: Directionality(
         textDirection: TextDirection.rtl,
         child: FloatingActionButton.extended(
-          onPressed: () => openPersonDialog(), // تم ربط الزر بالدالة هنا
+          onPressed: () => openPersonDialog(),
           backgroundColor: const Color(0xFF1E3A8A),
           icon: const Icon(
             Icons.person_add,
