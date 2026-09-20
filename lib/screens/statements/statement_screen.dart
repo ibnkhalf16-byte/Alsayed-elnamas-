@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../core/accounting/accounting_engine.dart';
-import '../../core/pdf/pdf_generator.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/utils/app_formatters.dart';
 import '../../models/person_model.dart';
 import '../../models/trip_model.dart';
 import '../../models/payment_model.dart';
+import '../../core/pdf/pdf_generator.dart';
 
 class StatementScreen extends StatefulWidget {
   final PersonModel? initialPerson;
 
-  const StatementScreen({Key? key, this.initialPerson}) : super(key: key);
+  const StatementScreen({
+    super.key,
+    this.initialPerson,
+  });
 
   @override
   State<StatementScreen> createState() => _StatementScreenState();
 }
 
 class _StatementScreenState extends State<StatementScreen> {
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  bool _loading = true;
+  bool _generatingPdf = false;
+
   List<PersonModel> _persons = [];
+  List<TripModel> _trips = [];
+  List<PaymentModel> _payments = [];
+
   PersonModel? _selectedPerson;
+
   List<Map<String, dynamic>> _events = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -31,245 +41,419 @@ class _StatementScreenState extends State<StatementScreen> {
 
   Future<void> _loadPersons() async {
     try {
-      final supabase = Supabase.instance.client;
-      final maps = await supabase.from('persons').select().order('name', ascending: true);
-      final pList = maps.map((m) => PersonModel.fromMap(m)).toList();
+      final personsData = await supabase
+          .from('persons')
+          .select()
+          .order('name', ascending: true);
 
+      final tripsData = await supabase
+          .from('trips')
+          .select();
+
+      final paymentsData = await supabase
+          .from('payments')
+          .select();
+
+      final persons = personsData
+          .map(
+            (item) => PersonModel.fromMap(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+
+      final trips = tripsData
+          .map(
+            (item) => TripModel.fromMap(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+
+      final payments = paymentsData
+          .map(
+            (item) => PaymentModel.fromMap(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _persons = persons;
+        _trips = trips;
+        _payments = payments;
+        _loading = false;
+      });
+
+      if (widget.initialPerson != null) {
+        final matching = persons.where(
+          (p) => p.id == widget.initialPerson!.id,
+        );
+
+        if (matching.isNotEmpty) {
+          _selectedPerson = matching.first;
+        } else {
+          _selectedPerson = widget.initialPerson;
+        }
+
+        await _fetchStatement();
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Statement load error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      _showError(
+        'تعذر تحميل كشف الحساب:\n$e',
+      );
+    }
+  }
+
+  Future<void> _fetchStatement() async {
+    final person = _selectedPerson;
+
+    if (person == null) {
+      setState(() {
+        _events = [];
+      });
+      return;
+    }
+
+    try {
+      final events = AccountingEngine.calculateStatement(
+        person,
+        _trips,
+        _payments,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _events = events;
+      });
+    } catch (e, stackTrace) {
+      debugPrint('Statement calculation error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _events = [];
+      });
+
+      _showError(
+        'تعذر حساب كشف الحساب:\n$e',
+      );
+    }
+  }
+
+  Future<void> _generatePdf() async {
+    final person = _selectedPerson;
+
+    if (person == null) {
+      _showError('يرجى اختيار طرف أولاً.');
+      return;
+    }
+
+    if (_generatingPdf) return;
+
+    setState(() {
+      _generatingPdf = true;
+    });
+
+    try {
+      await PdfGenerator.generateAndPrintStatement(
+        person: person,
+        events: _events,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم تجهيز كشف الحساب بنجاح',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Generate PDF error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      _showError(
+        'تعذر إنشاء ملف PDF:\n$e',
+      );
+    } finally {
       if (mounted) {
         setState(() {
-          _persons = pList;
-          _isLoading = false;
-          if (widget.initialPerson != null) {
-            _selectedPerson = _persons.firstWhere(
-              (p) => p.id == widget.initialPerson!.id,
-              orElse: () => widget.initialPerson!,
-            );
-            _fetchStatement(_selectedPerson!);
-          }
+          _generatingPdf = false;
         });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب الأطراف: $e')));
       }
     }
   }
 
-  Future<void> _fetchStatement(PersonModel person) async {
-    setState(() => _isLoading = true);
-    try {
-      final supabase = Supabase.instance.client;
-      final tMaps = await supabase.from('trips').select();
-      final pMaps = await supabase.from('payments').select();
+  void _showError(String message) {
+    if (!mounted) return;
 
-      final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
-      final payments = pMaps.map((m) => PaymentModel.fromMap(m)).toList();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          textDirection: TextDirection.rtl,
+        ),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
 
-      final statementEvents = AccountingEngine.calculateStatement(person, trips, payments);
-
-      if (mounted) {
-        setState(() {
-          _selectedPerson = person;
-          _events = statementEvents;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب الحركات: $e')));
-      }
-    }
+  String _formatMoney(double value) {
+    return '${value.toStringAsFixed(2)} ج.م';
   }
 
   @override
   Widget build(BuildContext context) {
-    final lastBalance = _events.isNotEmpty ? (_events.last['balance'] as double) : 0.0;
-    final isReceivable = lastBalance >= 0;
+    final lastBalance = _events.isNotEmpty
+        ? ((_events.last['balance'] as num?)?.toDouble() ?? 0.0)
+        : (_selectedPerson == null
+            ? 0.0
+            : _selectedPerson!.openingReceivable -
+                _selectedPerson!.openingPayable);
+
+    final isReceivable = lastBalance > 0;
+    final isPayable = lastBalance < 0;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('كشف حساب مفصل'),
+          title: const Text('كشف الحساب'),
           actions: [
-            if (_selectedPerson != null && _events.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.print_outlined),
-                tooltip: 'تصدير PDF',
-                onPressed: () {
-                  PdfGenerator.generateAndPrintStatement(
-                    person: _selectedPerson!,
-                    events: _events,
-                  );
-                },
-              ),
+            if (_selectedPerson != null)
+              _generatingPdf
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _generatePdf,
+                      tooltip: 'تصدير PDF',
+                      icon: const Icon(
+                        Icons.picture_as_pdf_outlined,
+                      ),
+                    ),
           ],
         ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: DropdownButtonFormField<PersonModel>(
-                value: _selectedPerson,
-                decoration: const InputDecoration(
-                  labelText: 'اختر الطرف (العميل أو المورد)',
-                  prefixIcon: Icon(Icons.person),
-                ),
-                items: _persons
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
-                    .toList(),
-                onChanged: (p) {
-                  if (p != null) _fetchStatement(p);
-                },
-              ),
-            ),
-            if (_selectedPerson != null)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isReceivable 
-                      ? [AppColors.receivableGreen.withOpacity(0.8), AppColors.receivableGreen]
-                      : [AppColors.payableRed.withOpacity(0.8), AppColors.payableRed],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                     BoxShadow(
-                       color: (isReceivable ? AppColors.receivableGreen : AppColors.payableRed).withOpacity(0.3),
-                       blurRadius: 8,
-                       offset: const Offset(0, 4)
-                     )
-                  ]
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('الرصيد النهائي الحالي:', style: TextStyle(color: Colors.white, fontSize: 14)),
-                        Text(
-                          AppFormatters.formatCurrency(lastBalance.abs()),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.white),
+        body: _loading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: DropdownButtonFormField<PersonModel>(
+                      value: _selectedPerson,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'اختر الطرف',
+                        prefixIcon: Icon(
+                          Icons.person_outline,
                         ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        border: OutlineInputBorder(),
                       ),
-                      child: Text(
-                        isReceivable ? 'مستحق (لك عنده)' : 'مطلوب (له عندك)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _events.isEmpty
-                      ? const Center(
+                      items: _persons.map((person) {
+                        return DropdownMenuItem<PersonModel>(
+                          value: person,
                           child: Text(
-                            'لا توجد حركات مسجلة لهذا الحساب',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                            person.name,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          itemCount: _events.length,
-                          itemBuilder: (ctx, i) {
-                            final ev = _events[i];
-                            final debit = (ev['debit'] as num).toDouble();
-                            final credit = (ev['credit'] as num).toDouble();
-                            final balance = (ev['balance'] as num).toDouble();
-                            final isOpening = ev['type'] == 'رصيد افتتاح';
+                        );
+                      }).toList(),
+                      onChanged: (person) async {
+                        setState(() {
+                          _selectedPerson = person;
+                          _events = [];
+                        });
 
-                            return Card(
-                              elevation: 1,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              color: isOpening ? AppColors.primary.withOpacity(0.05) : Colors.white,
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              isOpening ? Icons.account_balance : (debit > 0 ? Icons.add_circle : Icons.remove_circle),
-                                              color: isOpening ? AppColors.primary : (debit > 0 ? AppColors.receivableGreen : AppColors.payableRed),
-                                              size: 20,
-                                            ),
-                                            const SizedBox(width: 8),
+                        await _fetchStatement();
+                      },
+                    ),
+                  ),
+
+                  if (_selectedPerson != null)
+                    Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.account_balance_wallet_outlined,
+                              size: 32,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedPerson!.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    lastBalance.abs() < 0.01
+                                        ? 'الرصيد متزن'
+                                        : isReceivable
+                                            ? 'لنا: ${_formatMoney(lastBalance.abs())}'
+                                            : isPayable
+                                                ? 'علينا: ${_formatMoney(lastBalance.abs())}'
+                                                : 'الرصيد متزن',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isReceivable
+                                          ? Colors.green.shade700
+                                          : isPayable
+                                              ? Colors.red.shade700
+                                              : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  Expanded(
+                    child: _selectedPerson == null
+                        ? const Center(
+                            child: Text(
+                              'اختر طرفًا لعرض كشف الحساب',
+                            ),
+                          )
+                        : _events.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'لا توجد حركات لهذا الطرف',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(12),
+                                itemCount: _events.length,
+                                itemBuilder: (context, index) {
+                                  final event = _events[index];
+
+                                  final date =
+                                      event['date']?.toString() ?? '';
+
+                                  final description =
+                                      event['description']
+                                              ?.toString() ??
+                                          event['title']
+                                              ?.toString() ??
+                                          '';
+
+                                  final balance =
+                                      (event['balance'] as num?)
+                                              ?.toDouble() ??
+                                          0.0;
+
+                                  final debit =
+                                      (event['debit'] as num?)
+                                              ?.toDouble() ??
+                                          0.0;
+
+                                  final credit =
+                                      (event['credit'] as num?)
+                                              ?.toDouble() ??
+                                          0.0;
+
+                                  return Card(
+                                    margin: const EdgeInsets.only(
+                                      bottom: 8,
+                                    ),
+                                    child: ListTile(
+                                      title: Text(
+                                        description,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        date,
+                                      ),
+                                      trailing: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          if (debit != 0)
                                             Text(
-                                              '${ev['type']}',
+                                              'مدين: ${_formatMoney(debit)}',
                                               style: TextStyle(
-                                                fontWeight: FontWeight.bold, 
-                                                fontSize: 15,
-                                                color: isOpening ? AppColors.primary : AppColors.textPrimary
+                                                color: Colors.red.shade700,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        Text(
-                                          ev['date'].toString(),
-                                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'البيان: ${ev['desc']}',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const Divider(height: 24),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('مدين (+): ${AppFormatters.formatCurrency(debit)}', style: const TextStyle(color: AppColors.receivableGreen, fontSize: 13, fontWeight: FontWeight.bold)),
-                                            Text('دائن (-): ${AppFormatters.formatCurrency(credit)}', style: const TextStyle(color: AppColors.payableRed, fontSize: 13, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.scaffoldBackground,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            'الرصيد: ${AppFormatters.formatCurrency(balance)}',
+                                          if (credit != 0)
+                                            Text(
+                                              'دائن: ${_formatMoney(credit)}',
+                                              style: TextStyle(
+                                                color: Colors.green.shade700,
+                                              ),
+                                            ),
+                                          Text(
+                                            'الرصيد: ${_formatMoney(balance)}',
                                             style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                              color: AppColors.primaryDark,
+                                              fontWeight:
+                                                  FontWeight.bold,
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
-            ),
-          ],
-        ),
+                  ),
+                ],
+              ),
       ),
     );
   }
