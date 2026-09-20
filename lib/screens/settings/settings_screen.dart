@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto/crypto.dart';
-import 'package:sqflite/sqflite.dart';
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -11,8 +10,10 @@ class SettingsScreen extends StatefulWidget {
   /// دالة التحقق الأمني من كلمة المرور قبل العمليات الحساسة (حذف/تعديل)
   static Future<bool> verifyPassword(BuildContext context) async {
     final pwdCtrl = TextEditingController();
-    final db = await DatabaseHelper.instance.database;
-    final row = await db.query('settings', where: 'key = ?', whereArgs: ['password_hash']);
+    final supabase = Supabase.instance.client;
+    
+    // جلب الباسورد من السحابة
+    final row = await supabase.from('settings').select().eq('key', 'password_hash');
     final storedHash = row.isNotEmpty 
         ? row.first['value'] as String 
         : sha256.convert(utf8.encode('1234')).toString();
@@ -110,47 +111,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _isLoading = true);
 
-    final db = await DatabaseHelper.instance.database;
-    final row = await db.query('settings', where: 'key = ?', whereArgs: ['password_hash']);
-    final storedHash = row.isNotEmpty 
-        ? row.first['value'] as String 
-        : sha256.convert(utf8.encode('1234')).toString();
+    try {
+      final supabase = Supabase.instance.client;
+      final row = await supabase.from('settings').select().eq('key', 'password_hash');
+      final storedHash = row.isNotEmpty 
+          ? row.first['value'] as String 
+          : sha256.convert(utf8.encode('1234')).toString();
 
-    final enteredOldHash = sha256.convert(utf8.encode(_oldPwdCtrl.text.trim())).toString();
+      final enteredOldHash = sha256.convert(utf8.encode(_oldPwdCtrl.text.trim())).toString();
 
-    if (enteredOldHash != storedHash) {
+      if (enteredOldHash != storedHash) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('كلمة المرور الحالية غير صحيحة!'),
+              backgroundColor: AppColors.payableRed,
+            ),
+          );
+        }
+        return;
+      }
+
+      final newHash = sha256.convert(utf8.encode(_newPwdCtrl.text.trim())).toString();
+      
+      // حفظ في قاعدة البيانات السحابية Supabase
+      await supabase.from('settings').upsert({
+        'key': 'password_hash',
+        'value': newHash
+      });
+
+      _oldPwdCtrl.clear();
+      _newPwdCtrl.clear();
+      _confirmPwdCtrl.clear();
+
       setState(() => _isLoading = false);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('كلمة المرور الحالية غير صحيحة!'),
+            content: Text('تم تحديث كلمة المرور بنجاح ✅'),
+            backgroundColor: AppColors.receivableGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء تحديث كلمة المرور: $e'),
             backgroundColor: AppColors.payableRed,
           ),
         );
       }
-      return;
-    }
-
-    final newHash = sha256.convert(utf8.encode(_newPwdCtrl.text.trim())).toString();
-    await db.insert(
-      'settings',
-      {'key': 'password_hash', 'value': newHash},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-
-    _oldPwdCtrl.clear();
-    _newPwdCtrl.clear();
-    _confirmPwdCtrl.clear();
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحديث كلمة المرور بنجاح ✅'),
-          backgroundColor: AppColors.receivableGreen,
-        ),
-      );
     }
   }
 
@@ -283,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.storage_outlined, color: AppColors.primary),
+                          Icon(Icons.cloud_done, color: AppColors.primary),
                           SizedBox(width: 8),
                           Text(
                             'بيانات التطبيق وقاعدة البيانات',
@@ -293,7 +307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'قاعدة البيانات الحالية: SQLite محلية مشفرة.\nالتطبيق غير مرتبط حالياً بأي سحابة وجاهز للربط المستقبلي.',
+                        'قاعدة البيانات الحالية: تم الربط بنجاح مع السحابة (Supabase).\nيتم الآن حفظ وجلب جميع البيانات بشكل آمن ولا مركزية عبر الإنترنت.',
                         style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5),
                       ),
                     ],
