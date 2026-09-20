@@ -27,7 +27,16 @@ jobs:
           cache: true
 
       - name: Configure Flutter
-        run: flutter config --no-analytics
+        run: |
+          flutter config --no-analytics
+          flutter --version
+
+      - name: Create Android Platform
+        run: |
+          flutter create . \
+            --project-name alaa_accounts \
+            --platforms=android \
+            --org com.alaa.accounts
 
       - name: Install Android SDK 34
         run: |
@@ -36,24 +45,71 @@ jobs:
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-      - name: Check Android Configuration
+      - name: Configure Android SDK
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle")
+
+          if not path.exists():
+              raise SystemExit("ERROR: android/app/build.gradle was not created")
+
+          text = path.read_text()
+
+          text = text.replace(
+              "compileSdk = flutter.compileSdkVersion",
+              "compileSdk = 34"
+          )
+
+          text = text.replace(
+              "compileSdkVersion flutter.compileSdkVersion",
+              "compileSdkVersion 34"
+          )
+
+          text = text.replace(
+              "targetSdk = flutter.targetSdkVersion",
+              "targetSdk = 34"
+          )
+
+          text = text.replace(
+              "targetSdkVersion flutter.targetSdkVersion",
+              "targetSdkVersion 34"
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Verify Android Configuration
+        run: |
+          echo "===== Android files ====="
+          ls -la android
           echo "===== app/build.gradle ====="
-          cat android/app/build.gradle
+          grep -nE "compileSdk|targetSdk|minSdk" android/app/build.gradle
 
       - name: Install Dependencies
         run: |
           flutter clean
           flutter pub get
 
+      - name: Analyze Project
+        run: |
+          flutter analyze || true
+
       - name: Generate App Icon
-        run: dart run flutter_launcher_icons
+        run: |
+          dart run flutter_launcher_icons
 
       - name: Build APK Release
-        run: flutter build apk --release --no-tree-shake-icons
+        run: |
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Verify APK
+        run: |
+          ls -lh build/app/outputs/flutter-apk/
 
       - name: Upload APK Artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Alaa-Accounts-Release-APK
