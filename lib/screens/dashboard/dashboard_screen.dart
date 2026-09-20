@@ -258,7 +258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.person_add_alt_1,
                           color: Colors.blueAccent,
                           onTap: () {
-                            widget.onNavigateTab(2);
+                            widget.onNavigateTab(1);
                           },
                         ),
                         _buildActionBtn(
