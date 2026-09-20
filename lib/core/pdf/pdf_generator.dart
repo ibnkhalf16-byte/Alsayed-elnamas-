@@ -13,7 +13,7 @@ class PdfGenerator {
     final pdf = pw.Document();
 
     // ============================================================
-    // تحميل الخط العربي من داخل التطبيق
+    // تحميل الخط العربي
     // ============================================================
     final regularFontData = await rootBundle.load(
       'assets/fonts/NotoNaskhArabic-Regular.ttf',
@@ -27,16 +27,63 @@ class PdfGenerator {
     final fontBold = pw.Font.ttf(boldFontData);
 
     // ============================================================
-    // الرصيد النهائي
+    // تجهيز الحركات
+    //
+    // إذا كان رصيد أول المدة = صفر:
+    // لا يتم إظهاره كمدين أو دائن ولا يتم احتسابه مرة أخرى.
     // ============================================================
-    final lastBalance = events.isNotEmpty
-        ? (events.last['balance'] as num?)?.toDouble() ?? 0.0
-        : 0.0;
+    final cleanedEvents = events.map((ev) {
+      final copy = Map<String, dynamic>.from(ev);
+
+      final type = (copy['type'] ?? '').toString().trim();
+
+      final isOpeningBalance =
+          type == 'أول المدة' ||
+          type == 'رصيد أول المدة' ||
+          type.toLowerCase() == 'opening' ||
+          type.toLowerCase() == 'opening_balance';
+
+      if (isOpeningBalance) {
+        final debit =
+            (copy['debit'] as num?)?.toDouble() ?? 0.0;
+
+        final credit =
+            (copy['credit'] as num?)?.toDouble() ?? 0.0;
+
+        // إذا كان أول المدة صفر، نتركه بدون قيم مالية.
+        if (debit.abs() < 0.000001 &&
+            credit.abs() < 0.000001) {
+          copy['debit'] = null;
+          copy['credit'] = null;
+          copy['balance'] = null;
+        }
+      }
+
+      return copy;
+    }).toList();
+
+    // ============================================================
+    // الرصيد النهائي
+    //
+    // نأخذ آخر رصيد فعلي وليس رصيد حركة أول المدة الفارغة.
+    // ============================================================
+    double lastBalance = 0.0;
+
+    for (int i = cleanedEvents.length - 1; i >= 0; i--) {
+      final balance =
+          (cleanedEvents[i]['balance'] as num?)?.toDouble();
+
+      if (balance != null) {
+        lastBalance = balance;
+        break;
+      }
+    }
 
     // ============================================================
     // تاريخ الطباعة
     // ============================================================
     final now = DateTime.now();
+
     final currentDateStr =
         '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
@@ -51,7 +98,6 @@ class PdfGenerator {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
 
-        // تحديد اتجاه الصفحة بالكامل ليكون من اليمين لليسار
         textDirection: pw.TextDirection.rtl,
 
         margin: const pw.EdgeInsets.only(
@@ -71,9 +117,9 @@ class PdfGenerator {
         // ========================================================
         header: (pw.Context context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            crossAxisAlignment:
+                pw.CrossAxisAlignment.stretch,
             children: [
-              // اسم البرنامج
               pw.Center(
                 child: pw.Text(
                   'حسابات علاء ابو شادي',
@@ -87,7 +133,6 @@ class PdfGenerator {
 
               pw.SizedBox(height: 5),
 
-              // اسم الطرف
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
@@ -106,7 +151,7 @@ class PdfGenerator {
         },
 
         // ========================================================
-        // أسفل الصفحة (التذييل)
+        // أسفل الصفحة
         // ========================================================
         footer: (pw.Context context) {
           return pw.Column(
@@ -133,7 +178,6 @@ class PdfGenerator {
                     ),
                   ),
 
-                  // حقوق التصميم في المنتصف
                   pw.Text(
                     'تم تصميم البرنامج بواسطة علي خلف',
                     style: pw.TextStyle(
@@ -158,7 +202,7 @@ class PdfGenerator {
         },
 
         // ========================================================
-        // محتوى التقرير (الجدول)
+        // محتوى التقرير
         // ========================================================
         build: (pw.Context context) => [
           pw.TableHelper.fromTextArray(
@@ -190,18 +234,32 @@ class PdfGenerator {
 
             cellAlignment: pw.Alignment.center,
 
-            // مساحات الأعمدة متوافقة مع الترتيب (اليمين لليسار)
+            // ====================================================
+            // ترتيب الأعمدة:
+            //
+            // من اليمين:
+            // التاريخ
+            // الحركة
+            // البيان
+            // التحميل
+            // السائق
+            // وزن
+            // سعر الطن
+            // مدين
+            // دائن
+            // الرصيد
+            // ====================================================
             columnWidths: const {
-              0: pw.FlexColumnWidth(2.1), // التاريخ - أقصى اليمين
+              0: pw.FlexColumnWidth(2.1), // التاريخ
               1: pw.FlexColumnWidth(1.4), // الحركة
               2: pw.FlexColumnWidth(2.6), // البيان
               3: pw.FlexColumnWidth(1.8), // التحميل
               4: pw.FlexColumnWidth(2.1), // السائق
-              5: pw.FlexColumnWidth(1.2), // طن
-              6: pw.FlexColumnWidth(1.7), // سعر الطن
+              5: pw.FlexColumnWidth(1.2), // وزن
+              6: pw.FlexColumnWidth(1.8), // سعر الطن
               7: pw.FlexColumnWidth(2.0), // مدين
               8: pw.FlexColumnWidth(2.0), // دائن
-              9: pw.FlexColumnWidth(2.3), // الرصيد - أقصى اليسار
+              9: pw.FlexColumnWidth(2.3), // الرصيد
             },
 
             headers: <String>[
@@ -210,14 +268,17 @@ class PdfGenerator {
               'البيان',
               'التحميل',
               'السائق',
-              'طن',
+              'وزن',
               'سعر الطن',
               'مدين',
               'دائن',
               'الرصيد',
             ],
 
-            data: events.map((ev) {
+            // ====================================================
+            // بيانات الجدول
+            // ====================================================
+            data: cleanedEvents.map((ev) {
               final double debit =
                   (ev['debit'] as num?)?.toDouble() ?? 0.0;
 
@@ -230,6 +291,7 @@ class PdfGenerator {
               final double weight =
                   (ev['weight'] as num?)?.toDouble() ?? 0.0;
 
+              // سعر الطن
               final double price =
                   (ev['price'] as num?)?.toDouble() ?? 0.0;
 
@@ -248,25 +310,65 @@ class PdfGenerator {
               final String date =
                   ev['date']?.toString() ?? '';
 
+              // ==================================================
+              // التحقق من حركة أول المدة
+              // ==================================================
+              final bool isOpeningBalance =
+                  actionType.trim() == 'أول المدة' ||
+                  actionType.trim() == 'رصيد أول المدة' ||
+                  actionType.trim().toLowerCase() == 'opening' ||
+                  actionType.trim().toLowerCase() ==
+                      'opening_balance';
+
+              final bool openingIsZero =
+                  isOpeningBalance &&
+                  debit.abs() < 0.000001 &&
+                  credit.abs() < 0.000001;
+
               return [
+                // 1 - التاريخ
                 date,
+
+                // 2 - الحركة
                 actionType,
+
+                // 3 - البيان
                 itemOrDesc,
+
+                // 4 - التحميل
                 vehicle,
+
+                // 5 - السائق
                 driver,
+
+                // 6 - الوزن
                 weight > 0
                     ? weight.toStringAsFixed(2)
                     : '',
+
+                // 7 - سعر الطن
                 price > 0
                     ? price.toStringAsFixed(2)
                     : '',
-                debit > 0
-                    ? debit.toStringAsFixed(2)
-                    : '0.00',
-                credit > 0
-                    ? credit.toStringAsFixed(2)
-                    : '0.00',
-                balance.toStringAsFixed(2),
+
+                // 8 - مدين
+                openingIsZero
+                    ? ''
+                    : debit > 0
+                        ? debit.toStringAsFixed(2)
+                        : '0.00',
+
+                // 9 - دائن
+                openingIsZero
+                    ? ''
+                    : credit > 0
+                        ? credit.toStringAsFixed(2)
+                        : '0.00',
+
+                // 10 - الرصيد
+                openingIsZero
+                    ? ''
+                    : balance.toStringAsFixed(2),
               ];
             }).toList(),
           ),
@@ -277,7 +379,8 @@ class PdfGenerator {
           // الرصيد النهائي أسفل الجدول
           // ======================================================
           pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.start,
+            mainAxisAlignment:
+                pw.MainAxisAlignment.start,
             children: [
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(
@@ -291,7 +394,8 @@ class PdfGenerator {
                     width: 1,
                   ),
 
-                  borderRadius: const pw.BorderRadius.all(
+                  borderRadius:
+                      const pw.BorderRadius.all(
                     pw.Radius.circular(4),
                   ),
 
@@ -327,3 +431,5 @@ class PdfGenerator {
     );
   }
 }
+
+     
