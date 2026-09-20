@@ -1,3 +1,4 @@
+
 name: alaa_accounts
 description: "حسابات السيد النماس - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
@@ -9,22 +10,34 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   flutter_localizations:
     sdk: flutter
+
+  # Supabase - قاعدة البيانات الأساسية للمشروع
+  supabase_flutter: ^2.5.6
+
+  # SQLite - يُترك حاليًا للحفاظ على أي وظائف محلية موجودة بالمشروع
   sqflite: ^2.3.0
   sqflite_common_ffi: ^2.3.0
   path: ^1.8.3
+
   connectivity_plus: ^5.0.2
   uuid: ^4.3.3
   intl: any
   crypto: ^3.0.3
+
+  # PDF
   pdf: ^3.10.8
-  # تم تحديث printing إلى أحدث إصدار لدعم Android API 34 بشكل أصلي وحل خطأ lStar
   printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # مطلوب بواسطة analysis_options.yaml
+  flutter_lints: ^4.0.0
+
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
@@ -37,5 +50,7 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/images/logo2.png
+
