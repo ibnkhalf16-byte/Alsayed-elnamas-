@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -10,8 +11,12 @@ class PdfGenerator {
   }) async {
     final pdf = pw.Document();
 
-    final fontRegular = await PdfGoogleFonts.amiriRegular();
-    final fontBold = await PdfGoogleFonts.amiriBold();
+    // تحميل الخطوط محلياً من ملفات التطبيق بدلاً من الإنترنت لضمان عملها دائماً
+    final ByteData fontRegularData = await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf');
+    final pw.Font fontRegular = pw.Font.ttf(fontRegularData);
+
+    final ByteData fontBoldData = await rootBundle.load('assets/fonts/NotoSansArabic-Bold.ttf');
+    final pw.Font fontBold = pw.Font.ttf(fontBoldData);
 
     final lastBalance = events.isNotEmpty
         ? (events.last['balance'] as num?)?.toDouble() ?? 0.0
@@ -106,7 +111,6 @@ class PdfGenerator {
             cellHeight: 22,
             cellStyle: const pw.TextStyle(fontSize: 9),
             cellAlignment: pw.Alignment.center,
-            // تم عكس الترتيب هنا ليبدأ الرصيد يساراً وينتهي التاريخ يميناً
             columnWidths: const {
               0: pw.FlexColumnWidth(2.4), // الرصيد
               1: pw.FlexColumnWidth(2.2), // دائن
@@ -191,4 +195,3 @@ class PdfGenerator {
     );
   }
 }
-
