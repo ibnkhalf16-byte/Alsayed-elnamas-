@@ -27,7 +27,7 @@ dependencies:
 
   # PDF
   pdf: ^3.10.8
-  printing: ^5.13.1
+  printing: ^5.13.2
 
 dependency_overrides:
   app_links: 6.1.1
