@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/app_formatters.dart';
@@ -24,24 +24,34 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
 
   Future<void> _loadProfits() async {
     setState(() => _isLoading = true);
-    final db = await DatabaseHelper.instance.database;
-    final maps = await db.query('trips', orderBy: 'date ASC');
-    final trips = maps.map((m) => TripModel.fromMap(m)).toList();
+    try {
+      final supabase = Supabase.instance.client;
+      final maps = await supabase.from('trips').select().order('date', ascending: true);
+      final trips = maps.map((m) => TripModel.fromMap(m)).toList();
 
-    final profits = AccountingEngine.calculateRealProfits(trips);
+      final profits = AccountingEngine.calculateRealProfits(trips);
 
-    if (mounted) {
-      setState(() {
-        _profitData = profits;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _profitData = profits;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب بيانات الأرباح: $e')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _profitData == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
     }
 
     final double revenue = (_profitData!['revenue'] as num).toDouble();
