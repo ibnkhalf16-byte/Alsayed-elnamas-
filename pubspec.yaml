@@ -1,5 +1,5 @@
 name: alaa_accounts
-description: "حسابات علاء ابو شادي - إدارة النقلات والمحاصيل والعمليات المحاسبية"
+description: "حسابات السيد النماس - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,23 +11,21 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  
-  # تحديث الحزمة لأحدث إصدار متوافق لحل تعارضات التبعيات الداخلية
-  supabase_flutter: ^2.8.3
-  
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  path: ^1.8.3
   connectivity_plus: ^5.0.2
   uuid: ^4.3.3
   intl: any
   crypto: ^3.0.3
   pdf: ^3.10.8
-  # تحديث مكتبة الطباعة لتتوافق مع Android API 34 بشكل أصلي
+  # تم تحديث printing إلى أحدث إصدار لدعم Android API 34 بشكل أصلي وحل خطأ lStar
   printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
-  flutter_lints: ^4.0.0
 
 flutter_launcher_icons:
   android: "ic_launcher"
@@ -41,9 +39,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo2.png
-  fonts:
-    - family: NotoNaskhArabic
-      fonts:
-        - asset: assets/fonts/NotoSansArabic-Regular.ttf
-        - asset: assets/fonts/NotoSansArabic-Bold.ttf
-          weight: 700
