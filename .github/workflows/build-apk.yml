@@ -29,20 +29,45 @@ jobs:
       - name: Recreate Clean Android Platform
         run: |
           flutter config --no-analytics
-          rm -rf android/
-          rm -rf test/
-          flutter create . --project-name elsayed_accounts --platforms=android --org com.elsayed.accounts
+
+          rm -rf android
+          rm -rf test
+
+          flutter create . \
+            --project-name alaa_accounts \
+            --platforms=android \
+            --org com.elsayed.accounts
 
       - name: Force Android compileSdk 34 for App & Plugins
         run: |
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
+          sed -i \
+            's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' \
+            android/app/build.gradle
+
+          sed -i \
+            's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' \
+            android/app/build.gradle
+
           echo -e "\nsubprojects {\n    project.plugins.withId(\"com.android.library\") {\n        project.android {\n            compileSdkVersion 34\n        }\n    }\n}" >> android/build.gradle
+
+          echo "===== Android compileSdk ====="
+          grep -n "compileSdk" android/app/build.gradle
 
       - name: Install Dependencies
         run: |
-         flutter clean
-         flutter pub get
+          flutter clean
+          flutter pub get
+
+      - name: Verify Dependencies
+        run: |
+          echo "===== supabase_flutter ====="
+          flutter pub deps | grep supabase_flutter || true
+
+          echo "===== printing ====="
+          flutter pub deps | grep printing || true
+
+          echo "===== app_links ====="
+          flutter pub deps | grep app_links || true
 
       - name: Analyze Project
         run: flutter analyze || true
