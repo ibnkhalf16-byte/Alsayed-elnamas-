@@ -22,6 +22,10 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.2
 
+# هذا الجزء هو الذي سيحل مشكلة توقف البناء في GitHub Actions
+dependency_overrides:
+  app_links: 6.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
