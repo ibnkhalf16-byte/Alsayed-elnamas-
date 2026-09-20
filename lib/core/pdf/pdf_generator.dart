@@ -30,7 +30,7 @@ class PdfGenerator {
     // تجهيز الحركات
     //
     // إذا كان رصيد أول المدة = صفر:
-    // لا يتم إظهاره كمدين أو دائن أو رصيد.
+    // لا يتم إظهاره كمدين أو دائن ولا يتم احتسابه مرة أخرى.
     // ============================================================
     final cleanedEvents = events.map((ev) {
       final copy = Map<String, dynamic>.from(ev);
@@ -50,6 +50,7 @@ class PdfGenerator {
         final credit =
             (copy['credit'] as num?)?.toDouble() ?? 0.0;
 
+        // إذا كان أول المدة صفر، نتركه بدون قيم مالية.
         if (debit.abs() < 0.000001 &&
             credit.abs() < 0.000001) {
           copy['debit'] = null;
@@ -64,7 +65,7 @@ class PdfGenerator {
     // ============================================================
     // الرصيد النهائي
     //
-    // نأخذ آخر رصيد فعلي موجود.
+    // نأخذ آخر رصيد فعلي وليس رصيد حركة أول المدة الفارغة.
     // ============================================================
     double lastBalance = 0.0;
 
@@ -167,7 +168,6 @@ class PdfGenerator {
               pw.Row(
                 mainAxisAlignment:
                     pw.MainAxisAlignment.spaceBetween,
-                textDirection: pw.TextDirection.rtl,
                 children: [
                   pw.Text(
                     'صفحة ${context.pageNumber} من ${context.pagesCount}',
@@ -204,297 +204,216 @@ class PdfGenerator {
         // ========================================================
         // محتوى التقرير
         // ========================================================
-        build: (pw.Context context) {
-          // ======================================================
-          // بناء صفوف الجدول
-          //
-          // مهم جدًا:
-          //
-          // Table العادي يرسم الأعمدة من اليسار إلى اليمين.
-          //
-          // لذلك نضع البيانات في القائمة بهذا الترتيب:
-          //
-          // الرصيد ← دائن ← مدين ← سعر الطن ← وزن
-          // ← السائق ← التحميل ← البيان ← الحركة ← التاريخ
-          //
-          // وبالتالي:
-          //
-          // أقصى اليمين = التاريخ
-          // أقصى اليسار = الرصيد
-          // ======================================================
+        build: (pw.Context context) => [
+          pw.TableHelper.fromTextArray(
+            context: context,
 
-          final List<pw.TableRow> rows = [];
-
-          // ======================================================
-          // رأس الجدول
-          // ======================================================
-          rows.add(
-            pw.TableRow(
-              decoration: const pw.BoxDecoration(
-                color: PdfColor.fromInt(0xFF1E3A8A),
-              ),
-              children: [
-                _headerCell('الرصيد', fontBold),
-                _headerCell('دائن', fontBold),
-                _headerCell('مدين', fontBold),
-                _headerCell('سعر الطن', fontBold),
-                _headerCell('وزن', fontBold),
-                _headerCell('السائق', fontBold),
-                _headerCell('التحميل', fontBold),
-                _headerCell('البيان', fontBold),
-                _headerCell('الحركة', fontBold),
-                _headerCell('التاريخ', fontBold),
-              ],
+            border: pw.TableBorder.all(
+              color: PdfColors.grey500,
+              width: 0.5,
             ),
-          );
 
-          // ======================================================
-          // بيانات الحركات
-          // ======================================================
-          for (final ev in cleanedEvents) {
-            final double debit =
-                (ev['debit'] as num?)?.toDouble() ?? 0.0;
+            headerStyle: pw.TextStyle(
+              font: fontBold,
+              fontSize: 9,
+              color: PdfColors.white,
+            ),
 
-            final double credit =
-                (ev['credit'] as num?)?.toDouble() ?? 0.0;
+            headerDecoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF1E3A8A),
+            ),
 
-            final double balance =
-                (ev['balance'] as num?)?.toDouble() ?? 0.0;
+            headerHeight: 25,
 
-            final double weight =
-                (ev['weight'] as num?)?.toDouble() ?? 0.0;
+            cellStyle: pw.TextStyle(
+              font: fontRegular,
+              fontSize: 8.5,
+            ),
 
-            // سعر الطن
-            final double price =
-                (ev['price'] as num?)?.toDouble() ?? 0.0;
+            cellHeight: 22,
 
-            final String vehicle =
-                (ev['vehicle'] ?? '').toString();
-
-            final String driver =
-                (ev['driver'] ?? '').toString();
-
-            final String itemOrDesc =
-                (ev['desc'] ?? '').toString();
-
-            final String actionType =
-                (ev['type'] ?? '').toString();
-
-            final String date =
-                ev['date']?.toString() ?? '';
+            cellAlignment: pw.Alignment.center,
 
             // ====================================================
-            // التحقق من رصيد أول المدة
-            // ====================================================
-            final String normalizedType =
-                actionType.trim().toLowerCase();
-
-            final bool isOpeningBalance =
-                normalizedType == 'أول المدة' ||
-                normalizedType == 'رصيد أول المدة' ||
-                normalizedType == 'opening' ||
-                normalizedType == 'opening_balance';
-
-            final bool openingIsZero =
-                isOpeningBalance &&
-                debit.abs() < 0.000001 &&
-                credit.abs() < 0.000001;
-
-            // ====================================================
-            // إضافة صف
+            // ترتيب الأعمدة:
             //
-            // الترتيب هنا مقصود:
-            //
-            // الرصيد
-            // دائن
-            // مدين
-            // سعر الطن
-            // وزن
-            // السائق
-            // التحميل
-            // البيان
-            // الحركة
+            // من اليمين:
             // التاريخ
-            //
-            // لأن Table يرسم من اليسار لليمين،
-            // سيظهر التاريخ في أقصى اليمين.
+            // الحركة
+            // البيان
+            // التحميل
+            // السائق
+            // وزن
+            // سعر الطن
+            // مدين
+            // دائن
+            // الرصيد
             // ====================================================
-            rows.add(
-              pw.TableRow(
-                children: [
-                  // ------------------------------------------------
-                  // الرصيد
-                  // ------------------------------------------------
-                  _dataCell(
-                    openingIsZero
-                        ? ''
-                        : balance.toStringAsFixed(2),
-                    fontRegular,
-                  ),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2.1), // التاريخ
+              1: pw.FlexColumnWidth(1.4), // الحركة
+              2: pw.FlexColumnWidth(2.6), // البيان
+              3: pw.FlexColumnWidth(1.8), // التحميل
+              4: pw.FlexColumnWidth(2.1), // السائق
+              5: pw.FlexColumnWidth(1.2), // وزن
+              6: pw.FlexColumnWidth(1.8), // سعر الطن
+              7: pw.FlexColumnWidth(2.0), // مدين
+              8: pw.FlexColumnWidth(2.0), // دائن
+              9: pw.FlexColumnWidth(2.3), // الرصيد
+            },
 
-                  // ------------------------------------------------
-                  // دائن
-                  // ------------------------------------------------
-                  _dataCell(
-                    openingIsZero
-                        ? ''
-                        : credit > 0
-                            ? credit.toStringAsFixed(2)
-                            : '0.00',
-                    fontRegular,
-                  ),
+            headers: <String>[
+              'التاريخ',
+              'الحركة',
+              'البيان',
+              'التحميل',
+              'السائق',
+              'وزن',
+              'سعر الطن',
+              'مدين',
+              'دائن',
+              'الرصيد',
+            ],
 
-                  // ------------------------------------------------
-                  // مدين
-                  // ------------------------------------------------
-                  _dataCell(
-                    openingIsZero
-                        ? ''
-                        : debit > 0
-                            ? debit.toStringAsFixed(2)
-                            : '0.00',
-                    fontRegular,
-                  ),
+            // ====================================================
+            // بيانات الجدول
+            // ====================================================
+            data: cleanedEvents.map((ev) {
+              final double debit =
+                  (ev['debit'] as num?)?.toDouble() ?? 0.0;
 
-                  // ------------------------------------------------
-                  // سعر الطن
-                  // ------------------------------------------------
-                  _dataCell(
-                    price > 0
-                        ? price.toStringAsFixed(2)
-                        : '',
-                    fontRegular,
-                  ),
+              final double credit =
+                  (ev['credit'] as num?)?.toDouble() ?? 0.0;
 
-                  // ------------------------------------------------
-                  // الوزن
-                  // ------------------------------------------------
-                  _dataCell(
-                    weight > 0
-                        ? weight.toStringAsFixed(2)
-                        : '',
-                    fontRegular,
-                  ),
+              final double balance =
+                  (ev['balance'] as num?)?.toDouble() ?? 0.0;
 
-                  // ------------------------------------------------
-                  // السائق
-                  // ------------------------------------------------
-                  _dataCell(
-                    driver,
-                    fontRegular,
-                  ),
+              final double weight =
+                  (ev['weight'] as num?)?.toDouble() ?? 0.0;
 
-                  // ------------------------------------------------
-                  // التحميل
-                  // ------------------------------------------------
-                  _dataCell(
-                    vehicle,
-                    fontRegular,
-                  ),
+              // سعر الطن
+              final double price =
+                  (ev['price'] as num?)?.toDouble() ?? 0.0;
 
-                  // ------------------------------------------------
-                  // البيان
-                  // ------------------------------------------------
-                  _dataCell(
-                    itemOrDesc,
-                    fontRegular,
-                  ),
+              final String vehicle =
+                  (ev['vehicle'] ?? '').toString();
 
-                  // ------------------------------------------------
-                  // الحركة
-                  // ------------------------------------------------
-                  _dataCell(
-                    actionType,
-                    fontRegular,
-                  ),
+              final String driver =
+                  (ev['driver'] ?? '').toString();
 
-                  // ------------------------------------------------
-                  // التاريخ
-                  // ------------------------------------------------
-                  _dataCell(
-                    date,
-                    fontRegular,
-                  ),
-                ],
-              ),
-            );
-          }
+              final String itemOrDesc =
+                  (ev['desc'] ?? '').toString();
+
+              final String actionType =
+                  (ev['type'] ?? '').toString();
+
+              final String date =
+                  ev['date']?.toString() ?? '';
+
+              // ==================================================
+              // التحقق من حركة أول المدة
+              // ==================================================
+              final bool isOpeningBalance =
+                  actionType.trim() == 'أول المدة' ||
+                  actionType.trim() == 'رصيد أول المدة' ||
+                  actionType.trim().toLowerCase() == 'opening' ||
+                  actionType.trim().toLowerCase() ==
+                      'opening_balance';
+
+              final bool openingIsZero =
+                  isOpeningBalance &&
+                  debit.abs() < 0.000001 &&
+                  credit.abs() < 0.000001;
+
+              return [
+                // 1 - التاريخ
+                date,
+
+                // 2 - الحركة
+                actionType,
+
+                // 3 - البيان
+                itemOrDesc,
+
+                // 4 - التحميل
+                vehicle,
+
+                // 5 - السائق
+                driver,
+
+                // 6 - الوزن
+                weight > 0
+                    ? weight.toStringAsFixed(2)
+                    : '',
+
+                // 7 - سعر الطن
+                price > 0
+                    ? price.toStringAsFixed(2)
+                    : '',
+
+                // 8 - مدين
+                openingIsZero
+                    ? ''
+                    : debit > 0
+                        ? debit.toStringAsFixed(2)
+                        : '0.00',
+
+                // 9 - دائن
+                openingIsZero
+                    ? ''
+                    : credit > 0
+                        ? credit.toStringAsFixed(2)
+                        : '0.00',
+
+                // 10 - الرصيد
+                openingIsZero
+                    ? ''
+                    : balance.toStringAsFixed(2),
+              ];
+            }).toList(),
+          ),
+
+          pw.SizedBox(height: 12),
 
           // ======================================================
-          // الجدول
+          // الرصيد النهائي أسفل الجدول
           // ======================================================
-          return [
-            pw.Table(
-              border: pw.TableBorder.all(
-                color: PdfColors.grey500,
-                width: 0.5,
-              ),
+          pw.Row(
+            mainAxisAlignment:
+                pw.MainAxisAlignment.start,
+            children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
 
-              // ====================================================
-              // العرض النسبي للأعمدة
-              //
-              // ترتيب القائمة:
-              // الرصيد - دائن - مدين - سعر الطن - وزن
-              // - السائق - التحميل - البيان - الحركة - التاريخ
-              //
-              // النتيجة البصرية:
-              // التاريخ ... الرصيد
-              // ====================================================
-              columnWidths: const {
-                0: pw.FlexColumnWidth(2.3), // الرصيد
-                1: pw.FlexColumnWidth(2.0), // دائن
-                2: pw.FlexColumnWidth(2.0), // مدين
-                3: pw.FlexColumnWidth(1.8), // سعر الطن
-                4: pw.FlexColumnWidth(1.2), // وزن
-                5: pw.FlexColumnWidth(2.1), // السائق
-                6: pw.FlexColumnWidth(1.8), // التحميل
-                7: pw.FlexColumnWidth(2.6), // البيان
-                8: pw.FlexColumnWidth(1.4), // الحركة
-                9: pw.FlexColumnWidth(2.1), // التاريخ
-              },
-
-              children: rows,
-            ),
-
-            pw.SizedBox(height: 12),
-
-            // ====================================================
-            // الرصيد النهائي
-            // ====================================================
-            pw.Row(
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.start,
-              textDirection: pw.TextDirection.rtl,
-              children: [
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(
+                    color: PdfColors.blueGrey800,
+                    width: 1,
                   ),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(
-                      color: PdfColors.blueGrey800,
-                      width: 1,
-                    ),
-                    borderRadius:
-                        const pw.BorderRadius.all(
-                      pw.Radius.circular(4),
-                    ),
-                    color: PdfColors.grey100,
+
+                  borderRadius:
+                      const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
                   ),
-                  child: pw.Text(
-                    'الرصيد النهائي: ${lastBalance.toStringAsFixed(2)} ج.م',
-                    style: pw.TextStyle(
-                      font: fontBold,
-                      fontSize: 11,
-                      color: PdfColors.black,
-                    ),
+
+                  color: PdfColors.grey100,
+                ),
+
+                child: pw.Text(
+                  'الرصيد النهائي: ${lastBalance.toStringAsFixed(2)} ج.م',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 11,
+                    color: PdfColors.black,
                   ),
                 ),
-              ],
-            ),
-          ];
-        },
+              ),
+            ],
+          ),
+        ],
       ),
     );
 
@@ -505,66 +424,11 @@ class PdfGenerator {
       onLayout: (PdfPageFormat format) async {
         return pdf.save();
       },
+
       name: 'كشف_حساب_${person.name}',
+
       format: PdfPageFormat.a4.landscape,
     );
   }
-
-  // ==============================================================
-  // خلية رأس الجدول
-  // ==============================================================
-  static pw.Widget _headerCell(
-    String text,
-    pw.Font font,
-  ) {
-    return pw.Container(
-      height: 25,
-      alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.symmetric(
-        horizontal: 3,
-        vertical: 4,
-      ),
-      child: pw.Text(
-        text,
-        textAlign: pw.TextAlign.center,
-        textDirection: pw.TextDirection.rtl,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 9,
-          color: PdfColors.white,
-        ),
-      ),
-    );
-  }
-
-  // ==============================================================
-  // خلية بيانات الجدول
-  // ==============================================================
-  static pw.Widget _dataCell(
-    String text,
-    pw.Font font,
-  ) {
-    return pw.Container(
-      height: 22,
-      alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.symmetric(
-        horizontal: 3,
-        vertical: 3,
-      ),
-      child: pw.Text(
-        text,
-        textAlign: pw.TextAlign.center,
-        textDirection: pw.TextDirection.rtl,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 8.5,
-          color: PdfColors.black,
-        ),
-      ),
-    );
-  }
 }
-
-
-
-كما أن رصيد أول المدة = 0 سيظل فارغًا في مدين + دائن + الرصيد ولن يُستخدم كرصيد فعلي مرة أخرى.
+  
