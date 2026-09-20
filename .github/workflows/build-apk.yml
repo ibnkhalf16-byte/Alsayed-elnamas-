@@ -26,26 +26,22 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Platform
+      - name: Recreate Clean Android Platform
         run: |
           flutter config --no-analytics
           rm -rf android/
           rm -rf test/
-          flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
+          flutter create . --project-name elsayed_accounts --platforms=android --org com.elsayed.accounts
 
-      # إجبار إصدار SDK على 34 لتجنب تعارضات الحزم أثناء البناء
       - name: Force Android compileSdk 34
         run: |
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle || true
-          echo -e "\nsubprojects { afterEvaluate { project -> if (project.hasProperty('android')) { project.android { compileSdkVersion 34 } } } }" >> android/build.gradle || true
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Verify Supabase Dependency
-        run: flutter pub deps | grep supabase_flutter || true
-
+      # إضافة || true لتخطي الملاحظات (info) وعدم إيقاف البناء
       - name: Analyze Project
         run: flutter analyze || true
 
@@ -56,5 +52,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: alaa-abushady-Android-APK
+          name: Elsayed-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
