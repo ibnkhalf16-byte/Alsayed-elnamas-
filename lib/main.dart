@@ -1,23 +1,17 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
-import 'core/database/database_helper.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // تهيئة قواعد البيانات لنظام سطح المكتب Windows/Linux إن وجد
-  if (Platform.isWindows || Platform.isLinux) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
-  // تهيئة محرك قاعدة البيانات SQLite المحلية
-  await DatabaseHelper.instance.database;
+  // تهيئة الاتصال بقاعدة بيانات Supabase بدلاً من SQLite
+  await Supabase.initialize(
+    url: 'https://eeqgzwsyzoitpjrlgohx.supabase.co',
+    anonKey: 'Sb_publishable_y5EyMhMxk4XlXtZKmcikaA_nR7be8Xv', // تم إضافة المفتاح هنا
+  );
 
   runApp(const ElsayedAccountsApp());
 }
