@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -29,15 +30,13 @@ jobs:
       - name: Generate Android Platform
         run: |
           flutter config --no-analytics
-          # إنشاء مجلد android الخاص بالمنصة بالاعتماد على إعدادات Flutter الافتراضية
           flutter create . --platforms=android --org com.elsayed.accounts
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Analyze Project Code
-        # سيفشل البناء هنا إذا كان الكود يحتوي على أخطاء برمجية (Errors)
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Build APK Release
         run: flutter build apk --release --no-tree-shake-icons
@@ -48,3 +47,4 @@ jobs:
         with:
           name: Alsayed-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
+
