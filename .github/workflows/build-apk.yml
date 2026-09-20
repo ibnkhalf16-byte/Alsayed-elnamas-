@@ -26,46 +26,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Clean Android Platform
+      - name: Generate Android Platform
         run: |
           flutter config --no-analytics
-          rm -rf android
-          rm -rf test
-          flutter create . --project-name alaa_accounts --platforms=android --org com.elsayed.accounts
-
-      - name: Force App and Plugins to compileSdk 34
-        run: |
-          # 1. إجبار وحدة التطبيق الأساسية
-          sed -i 's/flutter.compileSdkVersion/34/g' android/app/build.gradle
-          
-          # 2. إجبار جميع الإضافات (Plugins) بشكل قاطع عبر afterEvaluate
-          cat << 'EOF' >> android/build.gradle
-          
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.plugins.hasPlugin("com.android.application") || project.plugins.hasPlugin("com.android.library")) {
-                      project.android {
-                          compileSdk = 34
-                      }
-                  }
-              }
-          }
-          EOF
+          # إنشاء مجلد android الخاص بالمنصة بالاعتماد على إعدادات Flutter الافتراضية
+          flutter create . --platforms=android --org com.elsayed.accounts
 
       - name: Install Dependencies
-        run: |
-          flutter clean
-          flutter pub get
+        run: flutter pub get
 
-      - name: Analyze Project
-        run: flutter analyze || true
+      - name: Analyze Project Code
+        # سيفشل البناء هنا إذا كان الكود يحتوي على أخطاء برمجية (Errors)
+        run: flutter analyze
 
       - name: Build APK Release
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Elsayed-Accounts-Release-APK
+          name: Alsayed-Accounts-Release-APK
           path: build/app/outputs/flutter-apk/*.apk
