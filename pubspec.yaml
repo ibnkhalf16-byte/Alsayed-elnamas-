@@ -21,7 +21,7 @@ dependencies:
   crypto: ^3.0.3
   pdf: ^3.10.8
   # تم تخفيض الإصدار لحل تعارض الحزم مع app_links
-  printing: ^5.13.1 
+  printing: ^5.13.2
 
 # حل مشكلة توقف البناء في GitHub Actions
 dependency_overrides:
