@@ -13,7 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  supabase_flutter: ^2.17.2
+  supabase_flutter: ^2.15.4
 
   sqflite: ^2.3.0
   sqflite_common_ffi: ^2.3.0
