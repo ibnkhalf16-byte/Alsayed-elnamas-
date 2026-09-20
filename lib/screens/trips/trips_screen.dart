@@ -1,8 +1,7 @@
-// FILE: lib/screens/trips/trips_screen.dart
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/app_formatters.dart';
@@ -34,14 +33,19 @@ class _TripsScreenState extends State<TripsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final db = await DatabaseHelper.instance.database;
-    final pMaps = await db.query('persons', orderBy: 'name ASC');
-    final tMaps = await db.rawQuery('''
-      SELECT t.*, p.name as person_name 
-      FROM trips t 
-      JOIN persons p ON t.person_id = p.id 
-      ORDER BY t.date DESC, t.created_at DESC
-    ''');
+    final supabase = Supabase.instance.client;
+    
+    // جلب الأطراف والنقلات من السحابة
+    final pMaps = await supabase.from('persons').select().order('name', ascending: true);
+    final rawTrips = await supabase.from('trips').select().order('date', ascending: false).order('created_at', ascending: false);
+
+    // دمج اسم الطرف محلياً بدلاً من استعلام SQL Raw
+    final personNames = {for (var p in pMaps) p['id']: p['name']};
+    final tMaps = rawTrips.map((t) {
+      final mutableTrip = Map<String, dynamic>.from(t);
+      mutableTrip['person_name'] = personNames[t['person_id']] ?? 'غير معروف';
+      return mutableTrip;
+    }).toList();
 
     final personsList = pMaps.map((m) => PersonModel.fromMap(m)).toList();
     final tripsList = tMaps.map((m) => TripModel.fromMap(m)).toList();
@@ -188,7 +192,7 @@ class _TripsScreenState extends State<TripsScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: carCtrl,
-                            decoration: const InputDecoration(labelText: 'التحميل'),
+                            decoration: const InputDecoration(labelText: 'التحميل (السيارة)'),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -220,7 +224,7 @@ class _TripsScreenState extends State<TripsScreen> {
                   
                   final total = weight * price;
                   
-                  final db = await DatabaseHelper.instance.database;
+                  final supabase = Supabase.instance.client;
 
                   if (isEdit) {
                     final isAuthorized = await SettingsScreen.verifyPassword(context);
@@ -240,7 +244,7 @@ class _TripsScreenState extends State<TripsScreen> {
                       notes: notesCtrl.text.trim(),
                       sourceTripId: existing.sourceTripId,
                     );
-                    await db.update('trips', updated.toMap(), where: 'id = ?', whereArgs: [existing.id]);
+                    await supabase.from('trips').update(updated.toMap()).eq('id', existing.id);
                   } else {
                     final newTrip = TripModel(
                       id: const Uuid().v4(),
@@ -255,7 +259,7 @@ class _TripsScreenState extends State<TripsScreen> {
                       total: total,
                       notes: notesCtrl.text.trim(),
                     );
-                    await db.insert('trips', newTrip.toMap());
+                    await supabase.from('trips').insert(newTrip.toMap());
                   }
 
                   Navigator.pop(ctx);
@@ -390,7 +394,7 @@ class _TripsScreenState extends State<TripsScreen> {
 
                   final totalSale = w * p;
 
-                  final db = await DatabaseHelper.instance.database;
+                  final supabase = Supabase.instance.client;
                   final saleTrip = TripModel(
                     id: const Uuid().v4(),
                     personId: selectedCustomer!,
@@ -404,7 +408,7 @@ class _TripsScreenState extends State<TripsScreen> {
                     total: totalSale,
                     sourceTripId: purchase.id,
                   );
-                  await db.insert('trips', saleTrip.toMap());
+                  await supabase.from('trips').insert(saleTrip.toMap());
 
                   Navigator.pop(ctx);
                   _loadData();
@@ -610,8 +614,8 @@ class _TripsScreenState extends State<TripsScreen> {
                                           final isAuthorized = await SettingsScreen.verifyPassword(context);
                                           if (!isAuthorized) return;
 
-                                          final db = await DatabaseHelper.instance.database;
-                                          await db.delete('trips', where: 'id = ?', whereArgs: [t.id]);
+                                          final supabase = Supabase.instance.client;
+                                          await supabase.from('trips').delete().eq('id', t.id);
                                           _loadData();
                                         },
                                       ),
