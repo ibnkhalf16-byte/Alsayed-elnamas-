@@ -144,6 +144,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         appBar: AppBar(
           title: const Text('حسابات السيد النماس', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.cloud_sync, size: 28),
+              tooltip: 'مزامنة وتحديث البيانات',
+              onPressed: () {
+                _loadDashboardData();
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -278,4 +288,3 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
-
