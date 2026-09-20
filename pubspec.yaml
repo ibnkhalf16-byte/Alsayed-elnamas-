@@ -12,26 +12,22 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   
-  # حزمة الاتصال بقاعدة بيانات Supabase (بديلة لـ SQLite)
-  supabase_flutter: ^2.4.0 
+  # تحديث الحزمة لأحدث إصدار متوافق لحل تعارضات التبعيات الداخلية
+  supabase_flutter: ^2.8.3
   
   connectivity_plus: ^5.0.2
   uuid: ^4.3.3
   intl: any
   crypto: ^3.0.3
   pdf: ^3.10.8
-  # تم تخفيض الإصدار لحل تعارض الحزم مع app_links
-  printing: ^5.13.1
-
-# حل مشكلة توقف البناء في GitHub Actions
-dependency_overrides:
-  app_links: 6.1.1
+  # تحديث مكتبة الطباعة لتتوافق مع Android API 34 بشكل أصلي
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
-  flutter_lints: ^4.0.0 # تم إضافتها لحل تحذير analysis_options.yaml
+  flutter_lints: ^4.0.0
 
 flutter_launcher_icons:
   android: "ic_launcher"
