@@ -1,6 +1,4 @@
-import 'dart:typed_data';
-
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -12,299 +10,320 @@ class PdfGenerator {
     required PersonModel person,
     required List<Map<String, dynamic>> events,
   }) async {
-    try {
-      // تحميل الخط العربي
-      final regularFontData = await rootBundle.load(
-        'assets/fonts/NotoNaskhArabic-Regular.ttf',
-      );
+    final pdf = pw.Document();
 
-      final boldFontData = await rootBundle.load(
-        'assets/fonts/NotoNaskhArabic-Bold.ttf',
-      );
+    // ============================================================
+    // تحميل الخط العربي من داخل التطبيق
+    // ============================================================
+    final regularFontData = await rootBundle.load(
+      'assets/fonts/NotoNaskhArabic-Regular.ttf',
+    );
 
-      final regularFont = pw.Font.ttf(
-        regularFontData,
-      );
+    final boldFontData = await rootBundle.load(
+      'assets/fonts/NotoNaskhArabic-Bold.ttf',
+    );
 
-      final boldFont = pw.Font.ttf(
-        boldFontData,
-      );
+    final fontRegular = pw.Font.ttf(regularFontData);
+    final fontBold = pw.Font.ttf(boldFontData);
 
-      final pdf = pw.Document(
-        theme: pw.ThemeData.withFont(
-          base: regularFont,
-          bold: boldFont,
+    // ============================================================
+    // الرصيد النهائي
+    // ============================================================
+    final lastBalance = events.isNotEmpty
+        ? (events.last['balance'] as num?)?.toDouble() ?? 0.0
+        : 0.0;
+
+    // ============================================================
+    // تاريخ الطباعة
+    // ============================================================
+    final now = DateTime.now();
+    final currentDateStr =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
+
+    // ============================================================
+    // إنشاء الصفحة
+    // ============================================================
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+
+        // تحديد اتجاه الصفحة بالكامل ليكون من اليمين لليسار
+        textDirection: pw.TextDirection.rtl,
+
+        margin: const pw.EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 15,
+          bottom: 18,
         ),
-      );
 
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4.landscape,
-          margin: const pw.EdgeInsets.all(24),
-          textDirection: pw.TextDirection.rtl,
-          build: (context) {
-            return pw.Directionality(
-              textDirection: pw.TextDirection.rtl,
-              child: pw.Column(
-                crossAxisAlignment:
-                    pw.CrossAxisAlignment.stretch,
+        theme: pw.ThemeData.withFont(
+          base: fontRegular,
+          bold: fontBold,
+        ),
+
+        // ========================================================
+        // رأس الصفحة
+        // ========================================================
+        header: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // اسم البرنامج
+              pw.Center(
+                child: pw.Text(
+                  'حسابات علاء ابو شادي',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 19,
+                    color: PdfColors.blueGrey900,
+                  ),
+                ),
+              ),
+
+              pw.SizedBox(height: 5),
+
+              // اسم الطرف
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  'كشف حساب: ${person.name}',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 12,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+
+              pw.SizedBox(height: 7),
+            ],
+          );
+        },
+
+        // ========================================================
+        // أسفل الصفحة (التذييل)
+        // ========================================================
+        footer: (pw.Context context) {
+          return pw.Column(
+            children: [
+              pw.SizedBox(height: 8),
+
+              pw.Divider(
+                color: PdfColors.grey400,
+                thickness: 0.5,
+              ),
+
+              pw.SizedBox(height: 5),
+
+              pw.Row(
+                mainAxisAlignment:
+                    pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'كشف حساب',
-                    textAlign: pw.TextAlign.center,
+                    'صفحة ${context.pageNumber} من ${context.pagesCount}',
                     style: pw.TextStyle(
-                      font: boldFont,
-                      fontSize: 22,
+                      font: fontRegular,
+                      fontSize: 9,
+                      color: PdfColors.grey700,
                     ),
                   ),
 
-                  pw.SizedBox(height: 8),
+                  // حقوق التصميم في المنتصف
+                  pw.Text(
+                    'تم تصميم البرنامج بواسطة علي خلف',
+                    style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 10,
+                      color: PdfColors.blueGrey900,
+                    ),
+                  ),
 
                   pw.Text(
-                    'الطرف: ${person.name}',
+                    'تاريخ الطباعة: $currentDateStr',
                     style: pw.TextStyle(
-                      font: boldFont,
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  if (person.phone.isNotEmpty)
-                    pw.Text(
-                      'الهاتف: ${person.phone}',
-                      style: pw.TextStyle(
-                        font: regularFont,
-                        fontSize: 11,
-                      ),
-                    ),
-
-                  if (person.address.isNotEmpty)
-                    pw.Text(
-                      'العنوان: ${person.address}',
-                      style: pw.TextStyle(
-                        font: regularFont,
-                        fontSize: 11,
-                      ),
-                    ),
-
-                  pw.SizedBox(height: 15),
-
-                  if (events.isEmpty)
-                    pw.Container(
-                      padding: const pw.EdgeInsets.all(20),
-                      child: pw.Center(
-                        child: pw.Text(
-                          'لا توجد حركة مسجلة لهذا الطرف',
-                          style: pw.TextStyle(
-                            font: regularFont,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    pw.Expanded(
-                      child: pw.Table(
-                        border: pw.TableBorder.all(
-                          color: PdfColors.grey600,
-                        ),
-                        columnWidths: const {
-                          0: pw.FlexColumnWidth(1.1),
-                          1: pw.FlexColumnWidth(2.4),
-                          2: pw.FlexColumnWidth(1.4),
-                          3: pw.FlexColumnWidth(1.4),
-                          4: pw.FlexColumnWidth(1.4),
-                          5: pw.FlexColumnWidth(1.6),
-                        },
-                        children: [
-                          pw.TableRow(
-                            decoration: const pw.BoxDecoration(
-                              color: PdfColors.grey300,
-                            ),
-                            children: [
-                              _headerCell('التاريخ', boldFont),
-                              _headerCell('البيان', boldFont),
-                              _headerCell('مدين', boldFont),
-                              _headerCell('دائن', boldFont),
-                              _headerCell('الرصيد', boldFont),
-                              _headerCell('نوع الحركة', boldFont),
-                            ],
-                          ),
-
-                          ...events.map(
-                            (event) {
-                              final date =
-                                  event['date']?.toString() ?? '';
-
-                              final description =
-                                  event['description']
-                                          ?.toString() ??
-                                      event['title']
-                                          ?.toString() ??
-                                      '';
-
-                              final debit =
-                                  (event['debit'] as num?)
-                                          ?.toDouble() ??
-                                      0.0;
-
-                              final credit =
-                                  (event['credit'] as num?)
-                                          ?.toDouble() ??
-                                      0.0;
-
-                              final balance =
-                                  (event['balance'] as num?)
-                                          ?.toDouble() ??
-                                      0.0;
-
-                              final type =
-                                  event['type']?.toString() ?? '';
-
-                              return pw.TableRow(
-                                children: [
-                                  _cell(date, regularFont),
-                                  _cell(
-                                    description,
-                                    regularFont,
-                                  ),
-                                  _cell(
-                                    _formatMoney(debit),
-                                    regularFont,
-                                  ),
-                                  _cell(
-                                    _formatMoney(credit),
-                                    regularFont,
-                                  ),
-                                  _cell(
-                                    _formatMoney(balance),
-                                    regularFont,
-                                  ),
-                                  _cell(
-                                    type,
-                                    regularFont,
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  pw.SizedBox(height: 12),
-
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(10),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(
-                        color: PdfColors.grey600,
-                      ),
-                    ),
-                    child: pw.Row(
-                      mainAxisAlignment:
-                          pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'الرصيد الختامي',
-                          style: pw.TextStyle(
-                            font: boldFont,
-                            fontSize: 14,
-                          ),
-                        ),
-                        pw.Text(
-                          _formatMoney(
-                            events.isEmpty
-                                ? person.openingReceivable -
-                                    person.openingPayable
-                                : ((events.last['balance']
-                                            as num?)
-                                        ?.toDouble() ??
-                                    0.0),
-                          ),
-                          style: pw.TextStyle(
-                            font: boldFont,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  pw.SizedBox(height: 8),
-
-                  pw.Text(
-                    'تم إنشاء التقرير بواسطة برنامج حسابات علاء أبو شادي',
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(
-                      font: regularFont,
+                      font: fontRegular,
                       fontSize: 9,
                       color: PdfColors.grey700,
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        ),
-      );
-
-      final Uint8List pdfBytes = await pdf.save();
-
-      if (pdfBytes.isEmpty) {
-        throw Exception('تم إنشاء ملف PDF فارغ.');
-      }
-
-      await Printing.layoutPdf(
-        name: 'كشف_حساب_${person.name}',
-        onLayout: (PdfPageFormat format) async {
-          return pdfBytes;
+            ],
+          );
         },
-      );
-    } catch (e, stackTrace) {
-      print('PDF ERROR: $e');
-      print(stackTrace);
 
-      rethrow;
-    }
-  }
+        // ========================================================
+        // محتوى التقرير (الجدول)
+        // ========================================================
+        build: (pw.Context context) => [
+          pw.TableHelper.fromTextArray(
+            context: context,
 
-  static pw.Widget _headerCell(
-    String text,
-    pw.Font font,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(6),
-      alignment: pw.Alignment.center,
-      child: pw.Text(
-        text,
-        textAlign: pw.TextAlign.center,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 10,
-        ),
+            border: pw.TableBorder.all(
+              color: PdfColors.grey500,
+              width: 0.5,
+            ),
+
+            headerStyle: pw.TextStyle(
+              font: fontBold,
+              fontSize: 9,
+              color: PdfColors.white,
+            ),
+
+            headerDecoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF1E3A8A),
+            ),
+
+            headerHeight: 25,
+
+            cellStyle: pw.TextStyle(
+              font: fontRegular,
+              fontSize: 8.5,
+            ),
+
+            cellHeight: 22,
+
+            cellAlignment: pw.Alignment.center,
+
+            // مساحات الأعمدة متوافقة مع الترتيب (اليمين لليسار)
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2.1), // التاريخ - أقصى اليمين
+              1: pw.FlexColumnWidth(1.4), // الحركة
+              2: pw.FlexColumnWidth(2.6), // البيان
+              3: pw.FlexColumnWidth(1.8), // التحميل
+              4: pw.FlexColumnWidth(2.1), // السائق
+              5: pw.FlexColumnWidth(1.2), // طن
+              6: pw.FlexColumnWidth(1.7), // سعر الطن
+              7: pw.FlexColumnWidth(2.0), // مدين
+              8: pw.FlexColumnWidth(2.0), // دائن
+              9: pw.FlexColumnWidth(2.3), // الرصيد - أقصى اليسار
+            },
+
+            headers: <String>[
+              'التاريخ',
+              'الحركة',
+              'البيان',
+              'التحميل',
+              'السائق',
+              'طن',
+              'سعر الطن',
+              'مدين',
+              'دائن',
+              'الرصيد',
+            ],
+
+            data: events.map((ev) {
+              final double debit =
+                  (ev['debit'] as num?)?.toDouble() ?? 0.0;
+
+              final double credit =
+                  (ev['credit'] as num?)?.toDouble() ?? 0.0;
+
+              final double balance =
+                  (ev['balance'] as num?)?.toDouble() ?? 0.0;
+
+              final double weight =
+                  (ev['weight'] as num?)?.toDouble() ?? 0.0;
+
+              final double price =
+                  (ev['price'] as num?)?.toDouble() ?? 0.0;
+
+              final String vehicle =
+                  (ev['vehicle'] ?? '').toString();
+
+              final String driver =
+                  (ev['driver'] ?? '').toString();
+
+              final String itemOrDesc =
+                  (ev['desc'] ?? '').toString();
+
+              final String actionType =
+                  (ev['type'] ?? '').toString();
+
+              final String date =
+                  ev['date']?.toString() ?? '';
+
+              return [
+                date,
+                actionType,
+                itemOrDesc,
+                vehicle,
+                driver,
+                weight > 0
+                    ? weight.toStringAsFixed(2)
+                    : '',
+                price > 0
+                    ? price.toStringAsFixed(2)
+                    : '',
+                debit > 0
+                    ? debit.toStringAsFixed(2)
+                    : '0.00',
+                credit > 0
+                    ? credit.toStringAsFixed(2)
+                    : '0.00',
+                balance.toStringAsFixed(2),
+              ];
+            }).toList(),
+          ),
+
+          pw.SizedBox(height: 12),
+
+          // ======================================================
+          // الرصيد النهائي أسفل الجدول
+          // ======================================================
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.start,
+            children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(
+                    color: PdfColors.blueGrey800,
+                    width: 1,
+                  ),
+
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+
+                  color: PdfColors.grey100,
+                ),
+
+                child: pw.Text(
+                  'الرصيد النهائي: ${lastBalance.toStringAsFixed(2)} ج.م',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 11,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
-  }
 
-  static pw.Widget _cell(
-    String text,
-    pw.Font font,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(5),
-      alignment: pw.Alignment.center,
-      child: pw.Text(
-        text,
-        textAlign: pw.TextAlign.center,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 9,
-        ),
-      ),
+    // ============================================================
+    // فتح شاشة الطباعة
+    // ============================================================
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async {
+        return pdf.save();
+      },
+
+      name: 'كشف_حساب_${person.name}',
+
+      format: PdfPageFormat.a4.landscape,
     );
-  }
-
-  static String _formatMoney(double value) {
-    return '${value.toStringAsFixed(2)} ج.م';
   }
 }
