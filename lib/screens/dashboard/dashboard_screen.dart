@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // إضافة حزمة Supabase
 import '../../core/accounting/accounting_engine.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/app_formatters.dart';
@@ -33,48 +33,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadDashboardData();
   }
 
+  // ==========================================================
+  // جلب البيانات من Supabase
+  // ==========================================================
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
-    final db = await DatabaseHelper.instance.database;
-    final pMaps = await db.query('persons');
-    final tMaps = await db.query('trips');
-    final payMaps = await db.query('payments');
-
-    final persons = pMaps.map((m) => PersonModel.fromMap(m)).toList();
-    final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
-    final payments = payMaps.map((m) => PaymentModel.fromMap(m)).toList();
-
-    double receivables = 0;
-    double payables = 0;
     
-    for (var p in persons) {
-      final events = AccountingEngine.calculateStatement(p, trips, payments);
-      final balance = events.isNotEmpty ? (events.last['balance'] as double) : 0.0;
-      if (balance > 0) {
-        receivables += balance;
-      } else if (balance < 0) {
-        payables += balance.abs();
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // استدعاء البيانات من الجداول السحابية
+      final pMaps = await supabase.from('persons').select();
+      final tMaps = await supabase.from('trips').select();
+      final payMaps = await supabase.from('payments').select();
+
+      final persons = pMaps.map((m) => PersonModel.fromMap(m)).toList();
+      final trips = tMaps.map((m) => TripModel.fromMap(m)).toList();
+      final payments = payMaps.map((m) => PaymentModel.fromMap(m)).toList();
+
+      double receivables = 0;
+      double payables = 0;
+      
+      for (var p in persons) {
+        final events = AccountingEngine.calculateStatement(p, trips, payments);
+        final balance = events.isNotEmpty ? (events.last['balance'] as double) : 0.0;
+        if (balance > 0) {
+          receivables += balance;
+        } else if (balance < 0) {
+          payables += balance.abs();
+        }
       }
-    }
 
-    double sales = 0;
-    double purchases = 0;
-    for (var t in trips) {
-      if (t.operation == 'sale') sales += t.total;
-      if (t.operation == 'purchase') purchases += t.total;
-    }
+      double sales = 0;
+      double purchases = 0;
+      for (var t in trips) {
+        if (t.operation == 'sale') sales += t.total;
+        if (t.operation == 'purchase') purchases += t.total;
+      }
 
-    final profitsData = AccountingEngine.calculateRealProfits(trips);
+      final profitsData = AccountingEngine.calculateRealProfits(trips);
 
-    if (mounted) {
-      setState(() {
-        _totalReceivable = receivables;
-        _totalPayable = payables;
-        _totalSales = sales;
-        _totalPurchases = purchases;
-        _netProfit = profitsData['profit'] ?? 0.0;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _totalReceivable = receivables;
+          _totalPayable = payables;
+          _totalSales = sales;
+          _totalPurchases = purchases;
+          _netProfit = profitsData['profit'] ?? 0.0;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في الاتصال بالسحابة: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -147,10 +162,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.cloud_sync, size: 28),
-              tooltip: 'مزامنة وتحديث البيانات',
-              onPressed: () {
-                _loadDashboardData();
-              },
+              tooltip: 'مزامنة السحابة',
+              onPressed: _loadDashboardData,
             ),
             const SizedBox(width: 8),
           ],
