@@ -1,5 +1,5 @@
-name: alaa_accounts
-description: "حسابات علاء ابو شادي - إدارة النقلات والمحاصيل والعمليات المحاسبية"
+name: elsayed_accounts
+description: "حسابات السيد النماس - إدارة النقلات والمحاصيل والعمليات المحاسبية"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,11 +11,10 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-
-  supabase_flutter: ^2.15.4
-  sqflite: ^2.3.0
-  sqflite_common_ffi: ^2.3.0
-  path: ^1.8.3
+  
+  # تم إزالة SQLite وإضافة حزمة الاتصال بالسحابة
+  supabase_flutter: ^2.4.0 
+  
   connectivity_plus: ^5.0.2
   uuid: ^4.3.3
   intl: any
@@ -23,10 +22,13 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.2
 
+# هذا الجزء يحل مشكلة توقف البناء في GitHub Actions
+dependency_overrides:
+  app_links: 6.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
@@ -39,10 +41,8 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/logo.png
-
   fonts:
     - family: NotoNaskhArabic
       fonts:
