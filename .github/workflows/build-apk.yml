@@ -26,14 +26,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
+      - name: Recreate Android Platform
         run: |
           flutter config --no-analytics
-          flutter pub get
+          rm -rf android
+          flutter create . \
+            --project-name alaa_accounts \
+            --platforms=android \
+            --org com.elsayed.accounts
+
+      - name: Install Dependencies
+        run: flutter pub get
 
       - name: Verify Supabase Dependency
-        run: |
-          flutter pub deps | grep supabase_flutter
+        run: flutter pub deps | grep supabase_flutter
 
       - name: Analyze Project
         run: flutter analyze
