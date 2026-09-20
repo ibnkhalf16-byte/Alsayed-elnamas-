@@ -1,5 +1,5 @@
 
-name: Build Android APK
+name: Diagnose Flutter Android
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  diagnose:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,27 +35,26 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Diagnose app_links Dependency
+      - name: Show Flutter Version
         run: |
           echo "===== Flutter Version ====="
           flutter --version
 
-          echo "===== app_links dependency ====="
-          flutter pub deps --style=compact | grep -A 5 -B 5 "app_links" || true
+      - name: Diagnose app_links Dependency
+        run: |
+          echo "===== app_links Dependency Tree ====="
+          flutter pub deps --style=tree | grep -B 8 -A 8 "app_links" || true
 
+          echo ""
           echo "===== Resolved app_links ====="
-          grep -A 10 -B 2 "app_links:" pubspec.lock || true
+          grep -A 12 -B 3 "app_links:" pubspec.lock || true
 
-      - name: Analyze Project Code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Show Direct Dependencies
+        run: |
+          echo ""
+          echo "===== Direct Dependencies ====="
+          flutter pub deps --style=compact
 
-      - name: Build APK Release
-        run: flutter build apk --release --no-tree-shake-icons
-
-      - name: Upload APK Artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Alsayed-Accounts-Release-APK
-          path: build/app/outputs/flutter-apk/*.apk
+      - name: Stop After Diagnosis
+        run: exit 0
 
