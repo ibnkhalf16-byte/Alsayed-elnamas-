@@ -10,38 +10,154 @@ jobs:
     runs-on: windows-latest
 
     steps:
+
+      # ==========================================
+      # 1. تحميل المشروع
+      # ==========================================
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ==========================================
+      # 2. إعداد Flutter
+      # ==========================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
+      # ==========================================
+      # 3. تفعيل Windows Desktop
+      # ==========================================
       - name: Enable Windows Desktop
-        run: flutter config --enable-windows-desktop
+        run: |
+          flutter config --no-analytics
+          flutter config --enable-windows-desktop
 
+      # ==========================================
+      # 4. إنشاء Windows Platform من جديد
+      # ==========================================
       - name: Recreate Clean Windows Platform
+        shell: pwsh
         run: |
-          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
-          flutter create . --project-name alaa_accounts --platforms=windows --org com.elsayed.accounts
+          if (Test-Path windows) {
+            Remove-Item -Recurse -Force windows
+          }
 
-      - name: Rename App to "حسابات السيد النماس"
+          flutter create . `
+            --project-name alaa_accounts `
+            --platforms=windows `
+            --org com.elsayed.accounts
+
+      # ==========================================
+      # 5. تغيير اسم التطبيق
+      # ==========================================
+      - name: Set Windows App Name
+        shell: pwsh
         run: |
-          (Get-Content windows\runner\main.cpp) -replace 'L"alaa_accounts"', 'L"حسابات السيد النماس"' | Set-Content windows\runner\main.cpp -Encoding UTF8
-          (Get-Content windows\runner\Runner.rc) -replace 'VALUE "FileDescription", "alaa_accounts"', 'VALUE "FileDescription", "حسابات السيد النماس"' | Set-Content windows\runner\Runner.rc -Encoding UTF8
-          (Get-Content windows\runner\Runner.rc) -replace 'VALUE "ProductName", "alaa_accounts"', 'VALUE "ProductName", "حسابات السيد النماس"' | Set-Content windows\runner\Runner.rc -Encoding UTF8
+          $appName = "حسابات علاء أبو شادي"
 
+          $mainCpp = "windows\runner\main.cpp"
+          $runnerRc = "windows\runner\Runner.rc"
+
+          # --------------------------------------
+          # main.cpp
+          # --------------------------------------
+          if (Test-Path $mainCpp) {
+            $content = Get-Content $mainCpp -Raw -Encoding UTF8
+
+            $content = $content -replace `
+              'L"alaa_accounts"', `
+              'L"حسابات علاء أبو شادي"'
+
+            Set-Content $mainCpp $content -Encoding UTF8
+          }
+
+          # --------------------------------------
+          # Runner.rc
+          # --------------------------------------
+          if (Test-Path $runnerRc) {
+            $content = Get-Content $runnerRc -Raw -Encoding UTF8
+
+            $content = $content -replace `
+              'VALUE "FileDescription", "alaa_accounts"', `
+              'VALUE "FileDescription", "حسابات علاء أبو شادي"'
+
+            $content = $content -replace `
+              'VALUE "ProductName", "alaa_accounts"', `
+              'VALUE "ProductName", "حسابات علاء أبو شادي"'
+
+            Set-Content $runnerRc $content -Encoding UTF8
+          }
+
+          Write-Host "Windows application name configured:"
+          Write-Host $appName
+
+      # ==========================================
+      # 6. التأكد من وجود اللوجو
+      # ==========================================
+      - name: Verify Logo
+        shell: pwsh
+        run: |
+          Write-Host "Checking logo..."
+
+          if (Test-Path "assets\images\logo2.png") {
+            Get-Item "assets\images\logo2.png" |
+              Format-List Name,Length,FullName
+
+            Write-Host "Logo found successfully."
+          }
+          else {
+            Write-Host "WARNING: assets\images\logo2.png was not found."
+            Write-Host "The Windows build will continue."
+          }
+
+      # ==========================================
+      # 7. تثبيت Dependencies
+      # ==========================================
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build Windows Release
-        run: flutter build windows --release
+      # ==========================================
+      # 8. التأكد من app_links
+      # ==========================================
+      - name: Verify app_links Version
+        shell: pwsh
+        run: |
+          Write-Host "===== Flutter Version ====="
+          flutter --version
 
+          Write-Host ""
+          Write-Host "===== Resolved app_links ====="
+
+          if (Test-Path "pubspec.lock") {
+            Select-String `
+              -Path "pubspec.lock" `
+              -Pattern "app_links" `
+              -Context 3,12
+          }
+
+      # ==========================================
+      # 9. تحليل المشروع
+      # ==========================================
+      - name: Analyze Project Code
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      # ==========================================
+      # 10. بناء Windows Release
+      # ==========================================
+      - name: Build Windows Release
+        run: |
+          flutter build windows --release
+
+      # ==========================================
+      # 11. رفع نسخة Windows
+      # ==========================================
       - name: Upload Windows Artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Alsayed-Elnamas-Windows-EXE
+          name: Alaa-Abu-Shady-Windows-Release
           path: build\windows\*\runner\Release\*
