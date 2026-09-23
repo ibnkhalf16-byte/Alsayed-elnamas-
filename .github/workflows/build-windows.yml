@@ -1,310 +1,46 @@
-name: Build Windows Desktop
+name: Build Windows EXE
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
     steps:
-
-      # ==========================================
-      # 1. تحميل المشروع
-      # ==========================================
       - name: Checkout Code
         uses: actions/checkout@v4
 
-
-      # ==========================================
-      # 2. إعداد Flutter
-      # ==========================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
-          channel: stable
+          channel: 'stable'
           cache: true
 
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
 
-      # ==========================================
-      # 3. إعداد Flutter
-      # ==========================================
-      - name: Configure Flutter
-        shell: pwsh
+      - name: Recreate Clean Windows Platform
+        # هذا الأمر يقوم بتوليد ملفات نظام ويندوز C++ النظيفة التي يحتاجها البناء
         run: |
-          flutter config --no-analytics
-          Write-Host "=========================================="
-          Write-Host "Flutter Version"
-          Write-Host "=========================================="
-          flutter --version
+          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
+          if (Test-Path test) { Remove-Item -Recurse -Force test }
+          flutter create . --project-name alaa_accounts --platforms=windows --org com.elsayed.accounts
 
-
-      # ==========================================
-      # 4. إنشاء Android + Windows
-      # ==========================================
-      - name: Generate Desktop Platforms
-        shell: pwsh
-        run: |
-          Write-Host "=========================================="
-          Write-Host "Creating Android + Windows Platforms"
-          Write-Host "=========================================="
-
-          flutter create . `
-            --platforms=android,windows `
-            --org com.elsayed.accounts
-
-          if (!(Test-Path "windows")) {
-            Write-Error "Windows platform was not created."
-            exit 1
-          }
-
-          if (!(Test-Path "android")) {
-            Write-Error "Android platform was not created."
-            exit 1
-          }
-
-          if (!(Test-Path "android/app/src/main/AndroidManifest.xml")) {
-            Write-Error "AndroidManifest.xml was not created."
-            exit 1
-          }
-
-          Write-Host "Android & Windows platforms: OK"
-
-
-      # ==========================================
-      # 5. التأكد من وجود Logo
-      # ==========================================
-      - name: Verify Assets
-        shell: pwsh
-        run: |
-          if (Test-Path "assets/images/logo2.png") {
-            Write-Host "logo2.png found."
-          }
-          else {
-            Write-Error "ERROR: assets/images/logo2.png was not found."
-            exit 1
-          }
-
-
-      # ==========================================
-      # 6. تثبيت Dependencies
-      # ==========================================
       - name: Install Dependencies
         run: |
+          flutter clean
           flutter pub get
 
-
-      # ==========================================
-      # 7. إنشاء أيقونات التطبيق
-      # ==========================================
-      - name: Generate App Icons
-        run: |
-          dart run flutter_launcher_icons
-
-
-      # ==========================================
-      # 8. تحليل المشروع
-      # ==========================================
-      - name: Analyze Project
-        run: |
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-
-
-      # ==========================================
-      # 9. فحص SQLite
-      # ==========================================
-      - name: Verify SQLite Configuration
-        shell: pwsh
-        run: |
-          if (Test-Path "pubspec.yaml") {
-            $pubspec = Get-Content "pubspec.yaml" -Raw
-            if ($pubspec -match "sqflite") { Write-Host "sqflite found." }
-            if ($pubspec -match "sqflite_common_ffi") { Write-Host "sqflite_common_ffi found." }
-          }
-
-
-      # ==========================================
-      # 10. بناء Windows Release
-      # ==========================================
       - name: Build Windows Release
-        run: |
-          flutter build windows --release
+        run: flutter build windows --release
 
-
-      # ==========================================
-      # 11. التحقق من Build
-      # ==========================================
-      - name: Verify Windows Build
-        shell: pwsh
-        run: |
-          $releasePath = "build/windows/x64/runner/Release"
-          if (!(Test-Path $releasePath)) {
-            Write-Error "Windows Release folder was not found."
-            exit 1
-          }
-          Write-Host "Windows Release folder found."
-
-
-      # ==========================================
-      # 12. إنشاء مجلد التوزيع
-      # ==========================================
-      - name: Prepare Distribution Folder
-        shell: pwsh
-        run: |
-          $releasePath = "build/windows/x64/runner/Release"
-          $distPath = "build/windows/AlsayedAccounts"
-
-          if (Test-Path $distPath) {
-            Remove-Item $distPath -Recurse -Force
-          }
-
-          New-Item -ItemType Directory -Path $distPath -Force | Out-Null
-          Copy-Item "$releasePath\*" $distPath -Recurse -Force
-
-
-      # ==========================================
-      # 13. نسخ Logo
-      # ==========================================
-      - name: Copy Logo
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          $logoFolder = "$distPath/assets/images"
-
-          New-Item -ItemType Directory -Path $logoFolder -Force | Out-Null
-          Copy-Item "assets/images/logo2.png" "$logoFolder/logo2.png" -Force
-          Write-Host "logo2.png copied successfully."
-
-
-      # ==========================================
-      # 14. البحث عن SQLite Database
-      # ==========================================
-      - name: Copy SQLite Database
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          $databaseFiles = @("database.db", "app.db", "elsayed_accounts.db", "AlsayedAccounts.db")
-          $foundDatabase =$false
-
-          foreach ($db in$databaseFiles) {
-            if (Test-Path $db) {
-              Copy-Item $db "$distPath/$db" -Force
-              $foundDatabase =$true
-              break
-            }
-          }
-          if (!$foundDatabase) {
-            Write-Host "No SQLite database file found. Will be created on first run."
-          }
-
-
-      # ==========================================
-      # 15. إنشاء مجلد Data
-      # ==========================================
-      - name: Prepare Data Folder
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          New-Item -ItemType Directory -Path "$distPath/data" -Force | Out-Null
-
-
-      # ==========================================
-      # 16. إنشاء README (بأمان تام بدون مشاكل مسافات)
-      # ==========================================
-      - name: Create README
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          
-          $readme = @(
-            "حسابات علاء أبو شادي",
-            "====================",
-            "",
-            "نسخة Windows 10 / Windows 11",
-            "",
-            "طريقة التشغيل:",
-            "--------------",
-            "1. فك ضغط الملف بالكامل.",
-            "2. افتح مجلد البرنامج.",
-            "3. شغل ملف البرنامج EXE.",
-            "",
-            "ملاحظة مهمة:",
-            "------------",
-            "لا تقم بتشغيل ملف EXE مباشرة من داخل ملف ZIP.",
-            "يجب فك الضغط بالكامل أولاً.",
-            "",
-            "قاعدة البيانات:",
-            "---------------",
-            "البرنامج يستخدم SQLite.",
-            "يتم إنشاء قاعدة البيانات محلياً عند أول تشغيل.",
-            "",
-            "النسخ الاحتياطي:",
-            "----------------",
-            "يفضل أخذ نسخة احتياطية من قاعدة البيانات دورياً."
-          )
-
-          $readme \vert{} Out-File "$distPath/README.txt" -Encoding UTF8
-
-
-      # ==========================================
-      # 17. إنشاء معلومات الإصدار
-      # ==========================================
-      - name: Create Build Info
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          $buildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-
-          $info = @(
-            "Application: حسابات علاء أبو شادي",
-            "Platform: Windows",
-            "Architecture: x64",
-            "Build Type: Release",
-            "Build Date: $buildDate",
-            "Flutter: 3.24.5"
-          )
-
-          $info \vert{} Out-File "$distPath/BUILD_INFO.txt" -Encoding UTF8
-
-
-      # ==========================================
-      # 18. فحص النسخة النهائية
-      # ==========================================
-      - name: Verify Distribution
-        shell: pwsh
-        run: |
-          $distPath = "build/windows/AlsayedAccounts"
-          Get-ChildItem $distPath -Recurse | Select-Object FullName, Length
-
-
-      # ==========================================
-      # 19. إنشاء ZIP
-      # ==========================================
-      - name: Create ZIP
-        shell: pwsh
-        run: |
-          $source = "build/windows/AlsayedAccounts"
-          $zip = "build/windows/Alsayed-Accounts-Windows-x64.zip"
-
-          if (Test-Path $zip) { Remove-Item$zip -Force }
-
-          Compress-Archive -Path "$source/*" -DestinationPath $zip -CompressionLevel Optimal
-          Write-Host "ZIP created successfully."
-
-
-      # ==========================================
-      # 20. رفع ZIP
-      # ==========================================
-      - name: Upload Windows ZIP
+      - name: Upload Windows Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Alsayed-Accounts-Windows-x64
-          path: build/windows/Alsayed-Accounts-Windows-x64.zip
-          if-no-files-found: error
-          retention-days: 30
+          name: Elsayed-Accounts-Windows-EXE
+          path: build\windows\*\runner\Release\*
