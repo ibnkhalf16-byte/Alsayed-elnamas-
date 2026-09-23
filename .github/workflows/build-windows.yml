@@ -1,42 +1,88 @@
-name: Build Windows EXE
+name: Build Windows Desktop
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: windows-latest
+  build-windows:
+
+    runs-on: windows-2022
 
     steps:
+
+      # ==========================================
+      # 1. تحميل المشروع
+      # ==========================================
       - name: Checkout Code
         uses: actions/checkout@v4
 
+
+      # ==========================================
+      # 2. إعداد Flutter
+      # ==========================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
-          channel: 'stable'
+          flutter-version: '3.35.2'
+          channel: stable
           cache: true
 
+
+      # ==========================================
+      # 3. التحقق من Flutter
+      # ==========================================
+      - name: Flutter Doctor
+        run: flutter doctor -v
+
+
+      # ==========================================
+      # 4. تفعيل Windows Desktop
+      # ==========================================
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Recreate Clean Windows Platform
-        run: |
-          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
-          flutter create . --platforms=windows
 
-      - name: Install Dependencies
+      # ==========================================
+      # 5. تنظيف المشروع
+      # ==========================================
+      - name: Flutter Clean
+        run: flutter clean
+
+
+      # ==========================================
+      # 6. تحميل Packages
+      # ==========================================
+      - name: Flutter Pub Get
         run: flutter pub get
 
+
+      # ==========================================
+      # 7. بناء Windows Release
+      # ==========================================
       - name: Build Windows Release
         run: flutter build windows --release
 
-      - name: Upload Windows Artifact
-        if: always()
+
+      # ==========================================
+      # 8. ضغط ملف البرنامج
+      # ==========================================
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "build\windows\x64\runner\Release\*" `
+            -DestinationPath "AbuShadyTransport-Windows.zip"
+
+
+      # ==========================================
+      # 9. رفع البرنامج كـ Artifact
+      # ==========================================
+      - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
-          name: Windows-EXE-Release
-          path: build\windows\*\runner\Release\*
+          name: AbuShadyTransport-Windows
+          path: AbuShadyTransport-Windows.zip
