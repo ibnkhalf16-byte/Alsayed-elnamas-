@@ -24,10 +24,9 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Recreate Clean Windows Platform
-        # هذا الأمر يقوم بتوليد ملفات نظام ويندوز C++ النظيفة التي يحتاجها البناء
+        # هذا الأمر يحل مشكلة Visual Studio بتوليد بيئة بناء ويندوز جديدة متوافقة مع الخادم
         run: |
           if (Test-Path windows) { Remove-Item -Recurse -Force windows }
-          if (Test-Path test) { Remove-Item -Recurse -Force test }
           flutter create . --project-name alaa_accounts --platforms=windows --org com.elsayed.accounts
 
       - name: Install Dependencies
@@ -39,7 +38,7 @@ jobs:
         run: flutter build windows --release
 
       - name: Upload Windows Artifact
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Elsayed-Accounts-Windows-EXE
