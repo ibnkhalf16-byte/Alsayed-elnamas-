@@ -27,48 +27,55 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.2'
           channel: stable
           cache: true
 
 
       # ==========================================
-      # 3. التحقق من Flutter
-      # ==========================================
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
-
-      # ==========================================
-      # 4. تفعيل Windows Desktop
+      # 3. تفعيل Windows
       # ==========================================
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
 
 
       # ==========================================
-      # 5. تنظيف المشروع
+      # 4. إنشاء ملفات Windows
+      #    لأن المشروع لا يحتوي على مجلد windows
+      # ==========================================
+      - name: Create Windows Project
+        run: flutter create --platforms=windows .
+
+
+      # ==========================================
+      # 5. التحقق من البيئة
+      # ==========================================
+      - name: Flutter Doctor
+        run: flutter doctor -v
+
+
+      # ==========================================
+      # 6. تنظيف المشروع
       # ==========================================
       - name: Flutter Clean
         run: flutter clean
 
 
       # ==========================================
-      # 6. تحميل Packages
+      # 7. تحميل الحزم
       # ==========================================
       - name: Flutter Pub Get
         run: flutter pub get
 
 
       # ==========================================
-      # 7. بناء Windows Release
+      # 8. بناء Windows Release
       # ==========================================
       - name: Build Windows Release
         run: flutter build windows --release
 
 
       # ==========================================
-      # 8. ضغط ملف البرنامج
+      # 9. ضغط البرنامج
       # ==========================================
       - name: Create ZIP
         shell: pwsh
@@ -79,10 +86,11 @@ jobs:
 
 
       # ==========================================
-      # 9. رفع البرنامج كـ Artifact
+      # 10. رفع البرنامج
       # ==========================================
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: AbuShadyTransport-Windows
           path: AbuShadyTransport-Windows.zip
+
