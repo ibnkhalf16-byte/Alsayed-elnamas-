@@ -92,6 +92,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: alsayed-Windows
-          path:  AbuShadyTransport-Windows.zip
+          path: alsayed_app.zip
 
 
