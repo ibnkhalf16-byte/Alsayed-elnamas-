@@ -9,8 +9,8 @@ void main() async {
 
   // تهيئة الاتصال بقاعدة بيانات Supabase بدلاً من SQLite
   await Supabase.initialize(
-    url: 'https://eeqgzwsyzoitpjrlgohx.supabase.co',
-    anonKey: 'sb_publishable_y5EyMhMxk4XlXtZKmcikaA_nR7be8Xv', // تم التصحيح من publishableKey إلى anonKey
+    url: 'https://jktqkxprxmgwcvrbtqqg.supabase.co',
+    anonKey: 'sb_publishable_YR3nbFbEsvbEfc1fiP8R1g_cS2Zoj8q', // تم التصحيح من publishableKey إلى anonKey
   );
 
   runApp(const ElsayedAccountsApp());
@@ -22,7 +22,7 @@ class ElsayedAccountsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'حسابات علاء ابو شادي',
+      title: 'حسابات السيد النماس',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       locale: const Locale('ar'),
