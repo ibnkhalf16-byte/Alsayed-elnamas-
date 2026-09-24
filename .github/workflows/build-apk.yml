@@ -108,7 +108,7 @@ jobs:
 
           print("==========================================")
           print("AndroidManifest.xml configured successfully")
-          print("App Name: حسابات علاء أبو شادي")
+          print("App Name: حسابات السيد النماس")
           print("Internet Permission: ENABLED")
           print("==========================================")
           PY
