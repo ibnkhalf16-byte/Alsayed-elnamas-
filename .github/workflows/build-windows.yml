@@ -82,7 +82,7 @@ jobs:
         run: |
           Compress-Archive `
             -Path "build\windows\x64\runner\Release\*" `
-            -DestinationPath "AbuShadyTransport-Windows.zip"
+            -DestinationPath "alsayed_app.zip"
 
 
       # ==========================================
@@ -91,6 +91,6 @@ jobs:
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
-          name: AbuShadyTransport-Windows
-          path: AbuShadyTransport-Windows.zip
+          name: alsayed-Windows
+          path: alsayed-Windows.zip
 
