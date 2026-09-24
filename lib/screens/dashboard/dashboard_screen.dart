@@ -157,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('حسابات علاء ابو شادي', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('حسابات السيد النماس', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
           actions: [
             IconButton(
