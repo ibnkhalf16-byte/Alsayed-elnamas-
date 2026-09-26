@@ -10,11 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    local_auth:  ^2.1.8
-
+  
   flutter_localizations:
     sdk: flutter
-
+  local_auth:  ^2.1.8
   # Supabase - قاعدة البيانات الأساسية للمشروع
   supabase_flutter: ^2.5.6
 
