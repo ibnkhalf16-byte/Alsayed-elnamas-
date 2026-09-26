@@ -44,12 +44,23 @@ jobs:
           flutter config --no-analytics
           flutter create . --platforms=android --org com.elsayed.accounts
 
-      - name: Inject Biometric Permissions
+      - name: Setup Biometrics (Permissions & FragmentActivity)
         run: |
-          # إضافة صلاحية البصمة لملف Manifest
+          # 1. إضافة صلاحية البصمة في ملف Manifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>' android/app/src/main/AndroidManifest.xml
-          # تعديل كلاس MainActivity ليدعم مستشعر البصمة
-          sed -i 's/FlutterActivity/FlutterFragmentActivity/g' android/app/src/main/kotlin/com/elsayed/accounts/MainActivity.kt
+          
+          # 2. البحث عن ملف MainActivity.kt وتعديله ديناميكياً لدعم البصمة
+          MAIN_ACTIVITY=$(find android/app/src/main/kotlin -name "MainActivity.kt")
+          PACKAGE_LINE=$(grep "^package " $MAIN_ACTIVITY)
+          
+          cat << EOF > $MAIN_ACTIVITY
+          $PACKAGE_LINE
+
+          import io.flutter.embedding.android.FlutterFragmentActivity
+
+          class MainActivity: FlutterFragmentActivity() {
+          }
+          EOF
       # ==========================================
       # 5. إعداد AndroidManifest.xml
       #    - Internet Permission
