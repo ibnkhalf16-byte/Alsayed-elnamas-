@@ -1,3 +1,4 @@
+import 'screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,7 +23,7 @@ class ElsayedAccountsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'حسابات السيد النماس',
+      title: 'حسابات علي خلف',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       locale: const Locale('ar'),
@@ -32,7 +33,7 @@ class ElsayedAccountsApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const HomeScreen(),
+      home: const LoginScreen(), 
     );
   }
 }
