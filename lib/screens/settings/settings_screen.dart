@@ -2,13 +2,34 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:local_auth/local_auth.dart';
 import '../../core/constants/app_colors.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
-  /// دالة التحقق الأمني من كلمة المرور قبل العمليات الحساسة (حذف/تعديل)
+  /// دالة التحقق الأمني من البصمة أو كلمة المرور قبل العمليات الحساسة
   static Future<bool> verifyPassword(BuildContext context) async {
+    final LocalAuthentication auth = LocalAuthentication();
+    
+    try {
+      // 1. محاولة المصادقة بالبصمة أولاً
+      final bool canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (canAuthenticate) {
+        final bool didAuthenticate = await auth.authenticate(
+          localizedReason: 'يرجى المصادقة بالبصمة لتأكيد تنفيذ العملية',
+          options: const AuthenticationOptions(
+            biometricOnly: true,
+            stickyAuth: true,
+          ),
+        );
+        if (didAuthenticate) return true; // نجحت المصادقة بالبصمة
+      }
+    } catch (e) {
+      debugPrint('Biometric error: $e');
+    }
+
+    // 2. إذا فشلت البصمة أو تم الإلغاء، يظهر مربع كلمة المرور السحابية
     final pwdCtrl = TextEditingController();
     final supabase = Supabase.instance.client;
     
